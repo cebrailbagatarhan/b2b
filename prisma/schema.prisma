@@ -1,0 +1,200 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  password     String
+  companyCode  String?
+  taxId        String?
+  status       String   @default("PENDING_APPROVAL") @db.VarChar(32)
+  balance      Float    @default(0.0)
+  discountRate Float    @default(0.0) // 0.15 = %15 indirim
+  riskLimit    Float    @default(0.0)
+  salesRepId   String?  // Plasiyer ID (Admin)
+  salesRep     Admin?   @relation(fields: [salesRepId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  carts        Cart[]
+  orders       Order[]
+  waitlists    Waitlist[]
+  addresses    Address[]
+}
+
+model Address {
+  id          String   @id @default(cuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  title       String   @db.NVarChar(80) // e.g. "Merkez Depo"
+  fullName    String   @db.NVarChar(160)
+  phone       String   @db.VarChar(32)
+  city        String   @db.NVarChar(80)
+  district    String   @db.NVarChar(80)
+  addressLine String   @db.NVarChar(512)
+  postalCode  String?  @db.VarChar(16)
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([customerId])
+}
+
+model Admin {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  password     String
+  role         String   @default("SUPERADMIN") // SUPERADMIN, SALES_REP, WAREHOUSE, ACCOUNTING
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  customers    Customer[] // Plasiyere bağlı müşteriler
+}
+
+model Banner {
+  id           String   @id @default(cuid())
+  title        String
+  subtitle     String?
+  imageUrl     String
+  linkUrl      String?
+  isActive     Boolean  @default(true)
+  orderIndex   Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Category {
+  id        String     @id @default(cuid())
+  name      String
+  parentId  String?
+  parent    Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children  Category[] @relation("CategoryHierarchy")
+  products  Product[]
+}
+
+model Product {
+  id          String         @id @default(cuid())
+  stockCode   String         @unique
+  name        String
+  description String?
+  imageUrl    String?
+  categoryId  String?
+  category    Category?      @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  stockQuantity Int          @default(0)
+  minStockLevel Int          @default(10)
+  prices      ProductPrice[]
+  units       ProductUnit[]
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+  waitlists   Waitlist[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model ProductPrice {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  price     Float
+  currency  String   @default("TRY")
+}
+
+model ProductUnit {
+  id         String     @id @default(cuid())
+  productId  String
+  product    Product    @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  unitName   String     // e.g. "Adet", "Koli"
+  multiplier Int        // e.g. 1 for Adet, 100 for Koli
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+}
+
+model Cart {
+  id         String     @id @default(cuid())
+  customerId String
+  customer   Customer   @relation(fields: [customerId], references: [id])
+  items      CartItem[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+model CartItem {
+  id        String      @id @default(cuid())
+  cartId    String
+  cart      Cart        @relation(fields: [cartId], references: [id])
+  productId String
+  product   Product     @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quantity  Int
+  unitId    String
+  unit      ProductUnit @relation(fields: [unitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model Order {
+  id               String      @id @default(cuid())
+  customerId       String
+  customer         Customer    @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  idempotencyKey   String      @db.VarChar(128)
+  status           String      @default("PENDING")
+  paymentMethod    String      @default("CREDIT_CARD") // CREDIT_CARD, OPEN_ACCOUNT (Cari), TRANSFER
+  salesRepId       String?     // Plasiyer girdiyse ID'si
+  subtotalAmount   Float
+  discountRate     Float       @default(0.0)
+  discountAmount   Float       @default(0.0)
+  totalAmount      Float
+  currency         String      @default("TRY") @db.VarChar(3)
+  items            OrderItem[]
+  // Immutable shipping snapshot; legacy orders predate the address flow and stay null.
+  shippingTitle       String?  @db.NVarChar(80)
+  shippingFullName    String?  @db.NVarChar(160)
+  shippingPhone       String?  @db.VarChar(32)
+  shippingCity        String?  @db.NVarChar(80)
+  shippingDistrict    String?  @db.NVarChar(80)
+  shippingAddressLine String?  @db.NVarChar(512)
+  shippingPostalCode  String?  @db.VarChar(16)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@unique([customerId, idempotencyKey], map: "Order_customerId_idempotencyKey_key")
+}
+
+model OrderItem {
+  id               String       @id @default(cuid())
+  orderId          String
+  order            Order        @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  productId        String?
+  product          Product?     @relation(fields: [productId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  unitId           String?
+  unit             ProductUnit? @relation(fields: [unitId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  stockCode        String       @db.NVarChar(128)
+  productName      String       @db.NVarChar(512)
+  unitName         String       @db.NVarChar(100)
+  quantity         Int
+  unitMultiplier   Int
+  unitPrice        Float
+  subtotalAmount   Float
+  discountAmount   Float        @default(0.0)
+  totalAmount      Float
+  currency         String       @default("TRY") @db.VarChar(3)
+  createdAt        DateTime     @default(now())
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([unitId])
+}
+
+model Waitlist {
+  id         String   @id @default(cuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt  DateTime @default(now())
+
+  @@unique([productId, customerId], map: "Waitlist_productId_customerId_key")
+}

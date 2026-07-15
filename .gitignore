@@ -24,6 +24,12 @@
 .DS_Store
 *.pem
 
+# local databases (project uses SQL Server; stray SQLite files stay local)
+*.db
+
+# user-uploaded content
+/public/uploads/
+
 # debug
 npm-debug.log*
 yarn-debug.log*
@@ -32,6 +38,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -39,3 +46,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/src/generated/prisma

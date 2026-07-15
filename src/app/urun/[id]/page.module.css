@@ -1,0 +1,158 @@
+.page {
+  min-height: 55vh;
+  padding-top: var(--spacing-lg);
+  padding-bottom: var(--spacing-2xl);
+}
+
+.breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: var(--spacing-lg);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.breadcrumb a {
+  color: var(--accent-primary);
+}
+
+.breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.breadcrumb a:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.currentPage {
+  max-width: min(480px, 55vw);
+  overflow: hidden;
+  color: var(--text-primary);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.productGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(340px, 0.92fr);
+  align-items: start;
+  gap: var(--spacing-xl);
+}
+
+.imagePanel {
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  background: #f8fafc;
+  box-shadow: var(--shadow-sm);
+}
+
+.imageFrame {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+.placeholder {
+  color: #94a3b8;
+  opacity: 0.45;
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.summary {
+  padding: var(--spacing-sm) 0;
+}
+
+.stockCode {
+  margin-bottom: var(--spacing-xs);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.summary h1 {
+  margin-bottom: var(--spacing-md);
+  font-size: clamp(1.65rem, 4vw, 2.4rem);
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+}
+
+.stockSummary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-sm);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.inStock,
+.outOfStock {
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-full);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.inStock {
+  background: var(--success);
+}
+
+.outOfStock {
+  background: var(--danger);
+}
+
+.description {
+  margin-top: var(--spacing-xl);
+  padding: var(--spacing-xl);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  background: var(--bg-card);
+}
+
+.description h2 {
+  margin-bottom: var(--spacing-sm);
+  font-size: 1.25rem;
+}
+
+.description p {
+  color: var(--text-secondary);
+  line-height: 1.75;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 860px) {
+  .productGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .imagePanel {
+    max-width: 680px;
+    margin-inline: auto;
+  }
+}
+
+@media (max-width: 520px) {
+  .currentPage {
+    max-width: 72vw;
+  }
+
+  .description {
+    padding: var(--spacing-lg);
+  }
+}
