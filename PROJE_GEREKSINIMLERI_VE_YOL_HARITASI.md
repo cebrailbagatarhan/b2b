@@ -1,8 +1,8 @@
 # TopTan Market Gereksinimleri ve Yol Haritası
 
-Tarih: 15 Temmuz 2026  
+Tarih: 17 Temmuz 2026
 Kapsam: Next.js 16, Prisma 5, SQL Server, mağaza, müşteri hesabı, sipariş, stok ve yönetim paneli  
-İlişkili rapor: `PROJE_INCELEME_VE_DUZELTME_PLANI.md`
+İlişkili raporlar: `PROJE_INCELEME_VE_DUZELTME_PLANI.md`, `PAZARYERI_B2B_B2C_EKSIKLER_VE_ENTEGRASYON_PLANI.md`
 
 ## Bu Dosyanın Amacı
 
@@ -23,6 +23,24 @@ Durum ifadeleri şu anlamda kullanılır:
 - README gerçek kurulum, secret, migration ve düşük-RAM çalışma talimatlarıyla yenilendi.
 - Bu değişiklikleri etkinleştirecek veritabanı migration'ı uygulanmadı ve Prisma Client yeniden üretilmedi. Önce yedek, incelenmiş baseline ve ayrı test SQL Server doğrulaması zorunludur.
 
+### 17 Temmuz 2026 güvenlik ve hazırlık güncellemesi
+
+- Parola hash'ine bağlı oturum sürümü eklendi. Parola değişince diğer cihazlardaki eski çerezler de sunucu tarafında reddediliyor; eski format oturumlar bir defalık yeniden giriş istiyor.
+- Giriş sayfasının tarayıcı bfcache'inden geri gelmesi durumunda sunucu oturumu yeniden doğrulanıyor; yalnız doğrulanmış oturum role uygun sayfaya yönlendiriliyor.
+- Parola sıfırlama e-posta gövdesi, URL'si, token'ı ve taşıyıcı hata ayrıntıları üretim loglarından çıkarıldı. SMTP sağlayıcısı ve gerçek teslimat testi hâlâ bekliyor.
+- Sabit telefon doğrulama kodu üretimde kapatıldı. Gerçek tek-kullanımlık SMS sağlayıcısı ve filtreli benzersiz telefon indeksi hazır olana kadar üretim kaydı güvenli biçimde `503` ile kapalıdır; geliştirme demosu çalışmaya devam eder.
+- Salt-okunur canlı veritabanı kontrolünde modern şema nesneleri vardı ancak `_prisma_migrations` geçmişi yoktu. `Customer.phone` kolonu var, `UX_Customer_phone_not_null` indeksi yok; dolu tek telefon geçerli ve tekrarsızdı. Hiçbir migration uygulanmadı.
+- 256 MB Node heap sınırıyla 101/101 kaynak sözdizimi ve 36/36 hedefli test geçti; değişen dosyalarda hedefli ESLint ve Prisma şema doğrulaması temizdi. Yalnız 2,14 GB RAM boş olduğu için güncel paket üzerinde sunucu, tarayıcı E2E, tam build ve tam `tsc` açılmadı.
+
+### 17 Temmuz 2026 kanal hazırlık güncellemesi
+
+- `/admin/kanal-hazirlik` ve yetkili CSV dışa aktarımı eklendi. B2B, B2C ve pazaryeri hazırlığı birbirinden ayrı hesaplanıyor; şemada olmayan barkod/marka/KDV gibi değerler tahmin edilmiyor.
+- Gerçek sağlayıcı/webhook olmadan kredi kartı, gerçek banka hesabı/mutabakat olmadan Havale/EFT siparişi hem arayüzde hem sunucuda kapatıldı. Yalnız yetkili B2B cari siparişi açık.
+- Eski ödeme-bekleyen siparişlere, yalnız sipariş sahibi için çift stok iadesini engelleyen güvenli iptal eklendi. İdempotent tekrar artık teslimat snapshot'ını da karşılaştırıyor.
+- Bayi fiyatları ürün Server Action yanıtlarında yalnız doğrulanmış aktif müşteri veya yönetici oturumuna veriliyor; anonim/geçersiz/askıdaki oturumlarda sunucuda redakte ediliyor.
+- Trendyol V2, diğer pazaryerleri, B2B fiyat/vade ve B2C tüketici akışları için veri modeli, adapter, outbox, webhook, uzlaştırma ve kabul kriterleri ayrı entegrasyon planında belgelendi.
+- Düşük-RAM doğrulaması öncesinde 2,94 GB, sonrasında 3,58 GB kullanılabilir bellek vardı. 256 MB heap sınırıyla 112/112 sözdizimi ve 49/49 hedefli test geçti; hedefli ESLint temizdi. Sunucu, tam build ve tam `tsc` açılmadı.
+
 ## 1. Mevcut Durumun Özeti
 
 ### Hazır olan temel parçalar
@@ -40,19 +58,24 @@ Durum ifadeleri şu anlamda kullanılır:
 - Sipariş idempotency, başlık tutarları ve değişmez kalem snapshot entegrasyonu
 - Ürün görsellerinin vitrin ve sepette gösterilmesi
 - Hedefli yardımcı testler, hafif TypeScript sözdizimi kontrolü ve RAM korumalı smoke aracı
+- B2B/B2C/pazaryeri ayrımlı kanal hazırlık merkezi ve tüm katalog için güvenli CSV raporu
+- Tamamlanmamış dış ödeme yöntemlerinde güvenli kapalı davranış ve eski ödeme-bekleyen siparişlerde müşteri iptali
+- Anonim/geçersiz oturumlara bayi fiyatı göndermeyen sunucu tarafı katalog erişim sınırı
 
 ### Üretime çıkmayı engelleyen ana eksikler
 
-- Prisma migration tabanı yok; mevcut veritabanı şeması sürümlenemiyor.
+- Incremental migration dosyaları var; fakat canlı veritabanında `_prisma_migrations` geçmişi ve incelenmiş baseline yok. Ortamlar güvenle tekrarlanabilir değil.
 - Mevcut hesapların parola rotasyonu/veri geçişi henüz çalıştırılmadı.
-- B2B onay ve sıfır-limit düzeltmesi kodda hazır olsa da veritabanı migration/cutover yapılmadığı için henüz etkin değil.
-- Sipariş kalem snapshot'ları ve idempotency kodda hazır olsa da veritabanı migration/cutover yapılmadığı için henüz etkin değil.
+- B2B onay/sıfır-limit, sipariş snapshot ve idempotency nesneleri canlı şemada görülüyor; migration geçmişi olmadığı için aynı durumun test/üretim ortamlarında güvenle yeniden kurulabildiği kanıtlanmış değil.
+- Gerçek SMS sağlayıcısı yok ve telefon için filtreli benzersiz indeks eksik; üretim kaydı bilinçli olarak kapalı.
 - Para alanları `Float`; finansal kesinlik için `Decimal` migration'ı gerekiyor.
 - Yerel `public/uploads` çoklu sunucu veya serverless dağıtım için kalıcı değil.
-- Gerçek ödeme sağlayıcısı ve doğrulanmış webhook akışı yok.
-- Sipariş, parola sıfırlama ve stok bildirimleri için e-posta servisi yok.
-- Stok rezervasyonu, iptal/iade ve ödeme başarısızlığı sonrası geri alma akışı tamamlanmadı.
-- Uçtan uca HTTP, gerçek SQL Server migration, production build ve dağıtım testi yapılmadı.
+- Gerçek ödeme sağlayıcısı ve doğrulanmış webhook akışı yok; bu nedenle kart ve Havale/EFT bilinçli olarak kapalı.
+- Parola sıfırlama akışı ve güvenli e-posta adapter'ı var; SMTP/işlem e-postası hesabı, kuyruk ve gerçek teslimat doğrulaması yok.
+- Eski ödeme-bekleyen siparişlerde müşteri iptali stoğu geri bırakıyor; süreli rezervasyon, ödeme başarısızlığı işi, sevk sonrası iade ve finansal refund akışları tamamlanmadı.
+- Barkod, marka, model/varyant, KDV, çoklu görsel, kategori özellikleri, desi ve liste/satış fiyatı modeli olmadığı için gerçek pazaryeri aktarımı yapılamaz.
+- B2B fiyat listesi/hacim fiyatı/vade/şirket lokasyonu ile B2C tüketici hesabı/KDV dahil fiyat/sözleşme/iade akışları eksik.
+- Güncel güvenlik paketi için gerçek tarayıcı bfcache, SMTP/SMS teslimatı, SQL Server migration, production build ve dağıtım testi yapılmadı.
 - README yenilendi; CI/CD, izleme, doğrulanmış yedekleme ve geri dönüş runbook'u hâlâ eksik.
 
 Bu nedenle proje şu anda **geliştirme/ön izleme düzeyindedir; üretim için hazır değildir**.
@@ -66,9 +89,9 @@ Bu nedenle proje şu anda **geliştirme/ön izleme düzeyindedir; üretim için 
 | SQL Server örneği | Prisma sağlayıcısı `sqlserver`; bağlantı `.env` üzerinden bekleniyor | Geliştirme, test ve üretim için ayrı veritabanları oluşturmak | Her ortam yalnız kendi veritabanına bağlanıyor |
 | `DATABASE_URL` | `.env.example` içinde örnek var | Gerçek kullanıcı/parolayı kaynak koda yazmadan secret store veya sunucu ortam değişkeninde tutmak | Repo ve loglarda bağlantı parolası görünmüyor |
 | Yetki ayrımı | Belirsiz | Uygulama kullanıcısına yalnız gereken CRUD yetkilerini; migration kullanıcısına ayrı şema yetkisini vermek | Uygulama hesabı şema silemiyor/değiştiremiyor |
-| Migration başlangıcı | Migration dosyası yok | Mevcut şemayı baseline kabul eden ilk Prisma/SQL Server migration'ını üretmek ve incelemek | Boş test veritabanı aynı şemaya migration ile kurulabiliyor |
+| Migration başlangıcı | Incremental dosyalar var; canlı DB'de `_prisma_migrations` ve incelenmiş baseline yok | Mevcut şemayı baseline kabul eden ilk Prisma/SQL Server migration'ını üretmek, incelemek ve mevcut DB'yi veri kaybetmeden baseline'a bağlamak | Boş test veritabanı aynı şemaya migration ile kurulabiliyor; mevcut DB'de migration geçmişi izleniyor |
 | Yedekleme | Proje içinde prosedür yok | Migration ve parola geçişinden önce tam yedek; periyodik otomatik yedek; geri yükleme denemesi | Test ortamında yedekten geri dönüş kanıtlanmış |
-| Veri bütünlüğü | Bazı ilişkiler ve benzersizlikler eksik | `OrderItem`, waitlist birleşik unique, slug unique ve gerekli indeksleri migration'a eklemek | Tekrarlı kayıtlar ve yetim ilişkiler veritabanı seviyesinde engelleniyor |
+| Veri bütünlüğü | Modern sipariş nesneleri mevcut; telefon için filtreli unique indeks ve bazı kalıcı benzersizlikler eksik | Telefon unique, waitlist birleşik unique, slug unique ve gerekli indeksleri incelenmiş migration'lara eklemek | Tekrarlı kayıtlar ve yetim ilişkiler veritabanı seviyesinde engelleniyor |
 
 Not: `prisma/dev.db`, mevcut `sqlserver` sağlayıcısının çalışma veritabanı değildir. Kullanılmadığı doğrulanmadan silinmemeli; doğrulama sonrasında yanlış kaynak algısı oluşturmaması için temizlenmelidir.
 
@@ -136,7 +159,7 @@ Kabul ölçütü: Sağlayıcının sandbox ortamında başarılı, başarısız,
 
 ### 2.6 E-posta servisi
 
-Bir işlem e-postası sağlayıcısı veya SMTP hesabı gereklidir. En az şu mesajlar planlanmalıdır:
+Parola sıfırlama akışı ve e-posta adapter'ı kodda vardır; üretim logları secretsızdır. Gerçek teslimat doğrulanmadığı için bir işlem e-postası sağlayıcısı veya SMTP hesabı hâlâ gereklidir. En az şu mesajlar planlanmalıdır:
 
 - E-posta doğrulama ve parola sıfırlama
 - Yeni sipariş alındı
@@ -157,7 +180,7 @@ Kabul ölçütü: Test ortamında gerçek teslimat, bounce ve tekrar deneme sena
 
 ### 2.7 B2B müşteri onayı ve finansal yetkilendirme
 
-Mevcut açık kayıt akışı müşteri kaydını hemen oluşturup oturum açıyor. `Customer.riskLimit` model varsayılanı `500000.0` olduğu için henüz ticari doğrulaması yapılmamış bir hesap 500.000 TL risk limitiyle doğuyor. Bu bir B2B uygulamasında üretimi engelleyen finansal yetkilendirme açığıdır.
+İlk incelemede açık kayıt müşteri kaydını hemen oluşturup oturum açıyor ve `Customer.riskLimit` varsayılanı nedeniyle henüz ticari doğrulaması yapılmamış hesaba finansal yetki veriyordu. Bu kod açığı giderildi. Güncel üretim kaydı ayrıca gerçek SMS sağlayıcısı ve benzersiz telefon indeksi tamamlanana kadar güvenli biçimde kapalıdır.
 
 Zorunlu model ve akış:
 
@@ -192,6 +215,7 @@ Kabul ölçütü: Yeni kayıtla doğrudan sipariş verilemez; hesap `riskLimit =
 | Object storage | S3 uyumlu, Azure Blob, R2 | Upload kodu, CDN ve maliyet |
 | Ödeme sağlayıcısı | İşletmenin sözleşmeli sağlayıcısı | Checkout, webhook, iade, komisyon |
 | E-posta sağlayıcısı | Kurumsal SMTP veya işlem e-postası servisi | Teslimat, şablon, bounce takibi |
+| SMS sağlayıcısı | Yerel operatör/OTP servisi veya kurumsal SMS ağ geçidi | Tek-kullanımlık telefon kodu, süre, deneme limiti ve üretim kaydının açılması |
 | Müşteri kabulü | Açık kayıt veya admin onaylı bayi kaydı | Kayıt, fiyat/risk görünürlüğü, güvenlik |
 | Kargo modeli | Manuel, kargo API'si veya ERP üzerinden | Adres, takip numarası, durum akışı |
 | Fatura/ERP entegrasyonu | Manuel, mevcut muhasebe/ERP API'si | Ürün, stok, cari ve sipariş kaynak otoritesi |
@@ -211,7 +235,10 @@ Bu seçimler netleşmeden ödeme, object storage, e-posta ve ERP entegrasyon kod
 | ORD-002 | Finansal alanları `Decimal` yapmak | `Float` kuruş ve limit hesaplarında hata üretebilir | Fiyat, bakiye, risk ve toplamlar için uygun precision/scale | DB-001, veri dönüşüm planı | Örnek sınır değerlerinde kuruş farkı yok; eski toplamlar mutabık |
 | ORD-003 | Idempotency ve stok rezervasyonu | Tekrar istek, ödeme zaman aşımı ve iptal stok/bakiye tutarsızlığı yaratabilir | Benzersiz istek anahtarı, rezervasyon süresi, serbest bırakma ve mutabakat işi | ORD-001/002, ödeme durum modeli | Aynı istek/webhook iki kez işlendiğinde tek sipariş ve tek stok hareketi var |
 | B2B-001 | Bayi onayı ve hesap durum sınırı | Açık kayıt bugün hesabı otomatik oturumla ve varsayılan 500.000 risk limitiyle oluşturuyor | `PENDING_APPROVAL/ACTIVE/SUSPENDED/REJECTED`, kayıt anında risk/iskonto 0, admin onayı ve audit | DB-001, rol matrisi, işletme onay kuralı | Yeni kayıt sipariş veremiyor; yalnız admin companyCode/plasiyer/risk/iskonto atayarak açıyor; suspended hesap eski oturumla da reddediliyor |
-| PAY-001 | Gerçek ödeme + imzalı webhook | Kartlı sipariş bugün yalnız `PENDING_PAYMENT` | Sandbox ödeme, webhook doğrulama, hata/iade durumları | Sağlayıcı kararı, ORD-001/003, HTTPS | Başarı/başarısızlık/tekrar webhook testleri geçiyor; kart verisi uygulamaya gelmiyor |
+| TEL-001 | Gerçek telefon OTP'si ve unique indeks | Demo kodu üretimde kapalı; SMS ve DB unique olmadan üretim kaydı güvenle açılamaz | Süreli/tek-kullanımlık OTP adapter'ı, deneme limiti, filtreli unique telefon indeksi | SMS sağlayıcısı, DB-001, yedek/test DB | Kod tekrar kullanılamıyor; kaba kuvvet sınırlı; aynı telefon ikinci hesaba yazılamıyor; üretim kaydı gerçek SMS ile tamamlanıyor |
+| PAY-001 | Gerçek ödeme + imzalı webhook | Tamamlanmamış kart/havale güvenli biçimde kapalı; B2C ödeme yapılamıyor | Hosted sandbox ödeme, webhook doğrulama, banka mutabakatı, hata/iade durumları | Sağlayıcı kararı, ORD-001/003, HTTPS | Başarı/başarısızlık/tekrar webhook testleri geçiyor; kart verisi uygulamaya gelmiyor; başarısız ödeme stoğu bırakıyor |
+| CAT-003 | Kanal uyumlu ortak ürün modeli | Barkod, marka, model/varyant, KDV, desi, çoklu görsel ve kategori özellikleri yok | Kanal bağımsız ürün/varyant/özellik/vergi/görsel modeli ve kontrollü migration | DB-001, ürün veri sahipliği, vergi kararı | Hazırlık merkezi eksiksiz örnek ürünü B2C/pazaryeri için hazır gösteriyor; eksik alanı tahmin etmiyor |
+| CHN-001 | Pazaryeri adapter ve uzlaştırma altyapısı | Doğrudan API çağrısı tekrar, limit ve veri sapması riski taşır | Kanal hesabı/eşleme, transactional outbox, retry/backoff, webhook ve periyodik uzlaştırma | CAT-003, INV-001, secret store, kanal sandbox hesabı | Tek olay tek yan etki üretir; webhook kesintisi sonrası sipariş/paket uzlaştırmayla tamamlanır |
 | STO-001 | Upload'ı object storage'a taşımak | Yerel dosya deploy ve çoklu instance'ta kaybolur | Provider adapter'ı, güvenli upload ve eski dosya taşıma planı | Storage kararı ve bucket | Yeniden deploy sonrası görseller erişilebilir; yetkisiz upload/listeme engelli |
 | OPS-001 | Yedek, geri yükleme ve rollback | Migration veya veri geçişi geri alınamıyor | Yazılı runbook, otomatik yedek ve doğrulanmış restore | SQL Server yetkisi ve depolama | Test restore tamamlanmış; migration geri dönüş adımı belgeli |
 | SEC-008 | Dağıtık rate limit ve güvenlik başlıkları | Bellek içi rate limit çoklu instance'ta ortak çalışmaz | Paylaşımlı rate-limit store, CSP/HSTS ve proxy başlıkları | Hosting/Redis benzeri store kararı | İki instance toplam limite uyar; temel güvenlik başlıkları HTTP testinde görülür |
@@ -223,12 +250,14 @@ Bu seçimler netleşmeden ödeme, object storage, e-posta ve ERP entegrasyon kod
 | ORD-004 | Sipariş durum makinesi | Serbest metin durumlar geçersiz geçişlere açıktır | İzinli durumlar ve rol bazlı geçiş tablosu | ORD-001/003, işletme süreci | Örneğin iptal edilen sipariş doğrudan sevk edildi yapılamıyor |
 | INV-001 | Stok hareket defteri ve mutabakat | Yalnız toplam stok adedi neden değiştiğini göstermez | Giriş, satış, rezervasyon, iptal, iade ve düzeltme hareketleri | ORD-001/003, stok kaynağı kararı | Her stok değişimi kaynak belgeye bağlı; toplam hareketler mevcut stokla eşleşiyor |
 | WAIT-001 | Bekleme listesi birleşik unique ve bildirim | Aynı müşteri aynı ürüne tekrar yazılabilir | `(customerId, productId)` unique ve stok gelince kuyruklu bildirim | DB-001, MAIL-001 | Tek kayıt oluşuyor; stok geldiğinde bir bildirim üretiliyor |
-| MAIL-001 | İşlem e-postaları | Kullanıcı sipariş/ödeme/parola olaylarından haberdar olmuyor | Sağlayıcı adapter'ı, şablon, kuyruk ve gönderim kaydı | E-posta sağlayıcısı, alan adı | Sipariş ve parola sıfırlama e-postaları test teslimatında doğrulandı |
+| MAIL-001 | İşlem e-postaları | Güvenli adapter ve parola sıfırlama akışı var; gerçek teslimat, kuyruk ve operasyon bildirimleri eksik | SMTP/sağlayıcı ayarı, şablon, kuyruk ve gönderim kaydı | E-posta sağlayıcısı, alan adı | Sipariş ve parola sıfırlama e-postaları test teslimatında doğrulandı; üretim loglarında token yok |
 | ADR-001 | Teslimat ve fatura adresleri | Siparişin nereye gideceği kalıcı tutulmuyor | Adres modelleri ve siparişte değişmez adres snapshot'ı | ORD-001, KVKK alan kararı | Sipariş sonrası müşteri adresi değişse de eski sipariş adresi korunuyor |
 | SHIP-001 | Kargo/sevkiyat akışı | Takip numarası ve sevk durumu yok | Kargo firması, takip numarası, paket ve sevk olayları | ADR-001, kargo kararı | Müşteri yalnız kendi takip bilgisini görüyor; durum geçişleri kayıtlı |
 | CAT-002 | Kalıcı kategori slug alanı | Geçici isimden slug üretimi yeniden adlandırmada rota kırabilir | Unique slug, parent-child doğrulama ve eski URL yönlendirmesi | DB-001 | Türkçe ad değişse de mevcut URL çalışıyor veya 301 yönleniyor |
 | AUD-001 | Yönetici denetim kaydı | Kritik ürün, stok, müşteri ve sipariş değişikliklerinin sahibi bilinmiyor | Aktör, eylem, hedef, önce/sonra özeti, zaman ve request kimliği | Oturum sistemi, veri saklama kararı | Kritik admin işlemleri sorgulanabilir ve değiştirilemez kayıt bırakıyor |
 | ERP-001 | ERP/muhasebe sınırını tanımlamak | Ürün, stok, cari ve fatura için iki kaynak veri çakışabilir | Kaynak otoritesi, senkron yönü, hata kuyruğu ve mutabakat raporu | ERP ve stok kaynağı kararı | Aynı kaydın sahibi belli; senkron hatası yeniden işlenebiliyor |
+| B2B-003 | Şirket, lokasyon, katalog ve fiyat/vade modeli | Tek müşteri kaydı kurumsal satın alma hiyerarşisini ve sözleşmeli ticareti taşıyamaz | Şirket-lokasyon-kullanıcı rolleri, fiyat listesi, min/max/artış, hacim fiyatı, PO ve vade/ledger | DB-001, ORD-002, finans ve satış kararı | Yetkisiz kullanıcı sözleşmeli fiyatı göremez; miktar/vade kuralı sipariş snapshot'ına yazılır |
+| B2C-001 | Tüketici satış ve hukuki akış | Mevcut kayıt/checkout yalnız bayi ve cari hesaba göre tasarlı | Tüketici hesabı/misafir checkout, KDV dahil fiyat, mesafeli satış onayı, online ödeme ve iade talebi | PAY-001, CAT-003, hukuk ve vergi kararı | Tüketici toplamı ve onay sürümü siparişte sabitlenir; iade/refund uçtan uca izlenir |
 
 ### P2 — Ürün Deneyimi ve İşlevsel Tamamlama
 
@@ -261,7 +290,7 @@ Bu seçimler netleşmeden ödeme, object storage, e-posta ve ERP entegrasyon kod
 
 ### Faz 0 — Kararlar ve güvenli başlangıç
 
-1. Hosting, SQL Server, object storage, ödeme, e-posta, kargo ve ERP kararlarını kaydet.
+1. Hosting, SQL Server, object storage, ödeme, e-posta, SMS, kargo ve ERP kararlarını kaydet.
 2. Mevcut veritabanının tam yedeğini al ve test restore yap.
 3. Gerçek secret'ların repo dışında tutulduğunu doğrula.
 4. Demo/gerçek veriyi ayır; üretimde kullanılmayacak hesap ve siparişleri işaretle.
@@ -271,11 +300,12 @@ Bu seçimler netleşmeden ödeme, object storage, e-posta ve ERP entegrasyon kod
 ### Faz 1 — Veri modeli ve hesap güvenliği
 
 1. Baseline migration oluştur ve boş test SQL Server'da doğrula.
-2. `Decimal`, `OrderItem`, unique constraint, slug ve gerekli indeks migration'larını hazırla.
+2. `Decimal`, `OrderItem`, telefon unique constraint, slug ve gerekli indeks migration'larını hazırla.
 3. Müşteri durum alanını ekle; açık kaydı risk/iskonto 0 olan `PENDING_APPROVAL` akışına taşı.
 4. Admin onayı, `companyCode`/plasiyer/risk/iskonto ataması ve suspended hesap sınırını uygula.
-5. Test verisiyle dönüşüm/mutabakat raporu üret.
-6. Yedek sonrasında mevcut parolaları döndür ve hash geçişini doğrula.
+5. Gerçek telefon OTP sağlayıcısını bağlayıp üretim kaydını güvenli biçimde aç.
+6. Test verisiyle dönüşüm/mutabakat raporu üret.
+7. Yedek sonrasında mevcut parolaları döndür ve hash geçişini doğrula.
 
 Çıkış ölçütü: Migration tekrarlanabilir; legacy parola yok; onaysız/askıdaki hesap finansal işlem yapamıyor; finansal veri mutabık.
 
@@ -334,10 +364,10 @@ Bu paket sırasında canlı veritabanına migration uygulanmamalı; önce test v
 
 - [x] Başlangıçta kullanılabilir RAM ve çalışan `node.exe` süreçleri kaydedildi.
 - [x] Kontroller aynı anda yalnız tek hedefli süreç olacak biçimde sırayla çalıştırıldı.
-- [x] Kaynak sözdizimi kontrolü 66/66 geçti.
-- [x] Hedefli yardımcı testler 13/13 geçti.
+- [x] Kaynak sözdizimi kontrolü 112/112 geçti.
+- [x] Hedefli güvenlik/iş-kuralı/kanal hazırlık testleri 49/49 geçti.
 - [x] Prisma şeması veri yazmadan doğrulandı.
-- [ ] Değişen dosyalara hedefli lint/type kontrolü uygulandı.
+- [x] Değişen dosyalara hedefli ESLint uygulandı; tam typecheck düşük RAM nedeniyle açılmadı.
 - [x] Kontrol sonrasında RAM ve Node süreçleri tekrar kaydedildi.
 - [x] Yalnız bu çalışma için başlatılan süreç PID'leri kapatıldı.
 

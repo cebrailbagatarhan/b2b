@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { MapPin, Plus, Trash2 } from 'lucide-react';
 import { getAddresses, createAddress, deleteAddress } from '@/app/actions';
+import TurkeyLocationSelect from '@/components/TurkeyLocationSelect';
 
 type Address = {
   id: string;
@@ -34,7 +35,7 @@ const emptyForm = {
   postalCode: '',
 };
 
-const inputStyle: React.CSSProperties = {
+const inputStyle: CSSProperties = {
   width: '100%',
   padding: '0.625rem 0.75rem',
   border: '1px solid var(--border)',
@@ -295,7 +296,7 @@ export default function CheckoutAddressSection({
               onChange={(e) => handleFormChange('fullName', e.target.value)}
             />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
             <input
               style={inputStyle}
               placeholder="Telefon"
@@ -305,32 +306,32 @@ export default function CheckoutAddressSection({
             />
             <input
               style={inputStyle}
-              placeholder="İl"
-              value={form.city}
-              maxLength={80}
-              onChange={(e) => handleFormChange('city', e.target.value)}
+              placeholder="Posta kodu (isteğe bağlı)"
+              value={form.postalCode}
+              maxLength={16}
+              onChange={(e) => handleFormChange('postalCode', e.target.value)}
             />
-            <input
-              style={inputStyle}
-              placeholder="İlçe"
-              value={form.district}
-              maxLength={80}
-              onChange={(e) => handleFormChange('district', e.target.value)}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <TurkeyLocationSelect
+              city={form.city}
+              district={form.district}
+              onCityChange={(city) => {
+                setForm((current) => ({ ...current, city, district: '' }));
+              }}
+              onDistrictChange={(district) =>
+                setForm((current) => ({ ...current, district }))
+              }
+              disabled={disabled || saving}
+              inputStyle={inputStyle}
             />
           </div>
           <textarea
             style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }}
-            placeholder="Açık adres"
+            placeholder="Açık adres (mahalle, sokak, no)"
             value={form.addressLine}
             maxLength={512}
             onChange={(e) => handleFormChange('addressLine', e.target.value)}
-          />
-          <input
-            style={{ ...inputStyle, maxWidth: '200px' }}
-            placeholder="Posta kodu (isteğe bağlı)"
-            value={form.postalCode}
-            maxLength={16}
-            onChange={(e) => handleFormChange('postalCode', e.target.value)}
           />
           <div style={{ display: 'flex', gap: '0.75rem' }}>
             <button

@@ -68,6 +68,16 @@ export function nextStatusesFor(from: OrderStatus): readonly OrderStatus[] {
   return ALLOWED_TRANSITIONS[from]
 }
 
+const CUSTOMER_CANCELLABLE_STATUSES: readonly OrderStatus[] = [
+  'PENDING_PAYMENT',
+  'PENDING_TRANSFER',
+]
+
+/** Customers may only release stock held by an unpaid, unprocessed order. */
+export function canCustomerCancelOrder(status: OrderStatus): boolean {
+  return CUSTOMER_CANCELLABLE_STATUSES.includes(status)
+}
+
 /**
  * Payment confirmation (→ APPROVED) belongs to accounting, physical
  * fulfillment (→ PROCESSING/SHIPPED/DELIVERED) to the warehouse.

@@ -91,7 +91,7 @@ export default function NewProductPage() {
         <Link href="/admin/urunler" style={{ color: '#64748b', display: 'flex', alignItems: 'center' }}>
           <ArrowLeft size={24} />
         </Link>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>Yeni Ürün Ekle</h1>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)' }}>Yeni Ürün Ekle</h1>
       </div>
 
       <div style={{ backgroundColor: '#fff', padding: '2rem', borderRadius: '0.75rem', border: '1px solid #e2e8f0', maxWidth: '800px' }}>
@@ -194,7 +194,7 @@ export default function NewProductPage() {
           <button 
             type="submit" disabled={uploading}
             style={{ 
-              alignSelf: 'flex-start', padding: '0.75rem 2rem', backgroundColor: '#2563eb', 
+              alignSelf: 'flex-start', padding: '0.75rem 2rem', backgroundColor: 'var(--accent-primary)',
               color: 'white', border: 'none', borderRadius: '0.5rem', display: 'flex', 
               alignItems: 'center', gap: '0.5rem', cursor: uploading ? 'not-allowed' : 'pointer',
               fontWeight: 500, marginTop: '1rem'

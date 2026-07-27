@@ -21,6 +21,7 @@ export type SessionPayload = {
   userId: string
   role: 'ADMIN' | 'CUSTOMER'
   adminRole?: AdminRole
+  credentialVersion: string
   expiresAt: number
 }
 
@@ -76,6 +77,42 @@ function signatureFor(encodedPayload: string, secret: string): Buffer {
   return createHmac('sha256', secret).update(encodedPayload).digest()
 }
 
+export function createCredentialVersion(
+  storedPassword: string,
+  secret: string = getSessionSecret()
+): string {
+  if (!storedPassword) {
+    throw new Error('Oturum için parola sürümü üretilemedi.')
+  }
+
+  return createHmac('sha256', secret)
+    .update(`credential-version:v1:${storedPassword}`)
+    .digest('base64url')
+}
+
+export function credentialVersionMatches(
+  credentialVersion: string | undefined,
+  storedPassword: string,
+  secret: string = getSessionSecret()
+): boolean {
+  if (!credentialVersion || !storedPassword) return false
+
+  try {
+    const supplied = Buffer.from(credentialVersion, 'base64url')
+    const expected = Buffer.from(
+      createCredentialVersion(storedPassword, secret),
+      'base64url'
+    )
+
+    return (
+      supplied.length === expected.length &&
+      timingSafeEqual(supplied, expected)
+    )
+  } catch {
+    return false
+  }
+}
+
 function isSessionPayload(value: unknown): value is SessionPayload {
   if (!value || typeof value !== 'object') return false
 
@@ -83,12 +120,16 @@ function isSessionPayload(value: unknown): value is SessionPayload {
   const hasValidRole = payload.role === 'ADMIN' || payload.role === 'CUSTOMER'
   const hasValidAdminRole =
     payload.adminRole === undefined || parseAdminRole(payload.adminRole) !== null
+  const hasValidCredentialVersion =
+    typeof payload.credentialVersion === 'string' &&
+    /^[A-Za-z0-9_-]{43}$/.test(payload.credentialVersion)
 
   return (
     typeof payload.userId === 'string' &&
     payload.userId.length > 0 &&
     hasValidRole &&
     hasValidAdminRole &&
+    hasValidCredentialVersion &&
     typeof payload.expiresAt === 'number' &&
     Number.isSafeInteger(payload.expiresAt)
   )

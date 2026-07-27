@@ -209,7 +209,7 @@ export default function MusterilerPage() {
       >
         <div>
           <h1
-            style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}
+            style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)' }}
           >
             Müşteriler
           </h1>
@@ -286,7 +286,7 @@ export default function MusterilerPage() {
               <Fragment key={customer.id}>
                 <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
                   <td style={bodyCellStyle}>
-                    <div style={{ fontWeight: 600, color: '#0f172a' }}>
+                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
                       {customer.name}
                     </div>
                     <div style={{ fontSize: '0.875rem', color: '#64748b' }}>
@@ -330,7 +330,7 @@ export default function MusterilerPage() {
                   <td style={bodyCellStyle}>
                     {customer.salesRep ? (
                       <>
-                        <div style={{ color: '#0f172a' }}>
+                        <div style={{ color: 'var(--text-primary)' }}>
                           {customer.salesRep.name}
                         </div>
                         <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
@@ -573,7 +573,7 @@ const bodyCellStyle: CSSProperties = {
 
 const primaryButtonStyle: CSSProperties = {
   padding: '0.5rem 0.75rem',
-  backgroundColor: '#2563eb',
+  backgroundColor: 'var(--accent-primary)',
   color: '#fff',
   border: 'none',
   borderRadius: '0.375rem',
@@ -605,5 +605,5 @@ const fieldInputStyle: CSSProperties = {
   border: '1px solid #cbd5e1',
   borderRadius: '0.4rem',
   backgroundColor: '#fff',
-  color: '#0f172a',
+  color: 'var(--text-primary)',
 }

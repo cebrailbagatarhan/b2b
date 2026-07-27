@@ -24,7 +24,7 @@
 .loginLogo {
   width: 56px;
   height: 56px;
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  background: var(--accent-gradient);
   border-radius: 14px;
   display: flex;
   align-items: center;
@@ -77,22 +77,24 @@
 .submitBtn {
   width: 100%;
   padding: 0.85rem;
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  background: var(--accent-gradient);
   color: white;
   font-weight: 600;
   font-size: 1rem;
   border-radius: var(--radius-md);
   border: none;
   cursor: pointer;
-  transition: opacity 0.2s ease, transform 0.1s ease;
+  transition: opacity 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+  box-shadow: var(--shadow-sm);
 }
 
 .submitBtn:hover {
-  opacity: 0.9;
+  opacity: 0.95;
+  box-shadow: var(--shadow-hover);
 }
 
 .submitBtn:active {

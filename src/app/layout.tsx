@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import AuthSessionSync from "@/components/AuthSessionSync";
+import PreferencesSync from "@/components/PreferencesSync";
 import SiteChrome from "@/components/SiteChrome";
+import ThemeScript from "@/components/ThemeScript";
 
 export const metadata: Metadata = {
   title: "TopTan Market | Toptan Satış Platformu",
@@ -14,9 +16,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="tr">
+    <html lang="tr" suppressHydrationWarning>
+      <head>
+        <ThemeScript />
+      </head>
       <body>
         <AuthSessionSync />
+        <PreferencesSync />
         <SiteChrome>{children}</SiteChrome>
       </body>
     </html>

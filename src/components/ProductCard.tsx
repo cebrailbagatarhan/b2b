@@ -5,6 +5,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Heart, Image as ImageIcon, ShoppingCart, Plus, Minus, Check } from 'lucide-react';
 import { useCartStore, useAuthStore } from '@/lib/store';
+import { formatMoney } from '@/lib/i18n';
+import { useLocale, useT } from '@/lib/use-t';
 import styles from './ProductCard.module.css';
 
 type ProductUnit = {
@@ -30,6 +32,9 @@ type Product = {
 };
 
 export default function ProductCard({ product }: { product: Product }) {
+  const t = useT();
+  const locale = useLocale();
+  const p = t.product;
   const [selectedUnitId, setSelectedUnitId] = useState<string>(product.units[0]?.id || '');
   const [rawQuantity, setQuantity] = useState<number>(1);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -46,28 +51,24 @@ export default function ProductCard({ product }: { product: Product }) {
     ? Math.floor(Math.max(0, product.stockQuantity) / unitObj.multiplier)
     : 0;
 
-  // Clamp during render instead of syncing state in an effect: when the
-  // selected unit changes, the available stock (and thus the valid range)
-  // changes with it.
   const quantity = Math.max(1, Math.min(rawQuantity, availableQuantity || 1));
 
   const handleDecrease = () => setQuantity(Math.max(1, quantity - 1));
   const handleIncrease = () =>
     setQuantity(Math.min(availableQuantity || 1, quantity + 1));
 
-  // B2B Feature: Dynamic Pricing & Discount
   const discountRate = user?.discountRate || 0;
   const originalPrice = priceObj?.price || 0;
   const finalPrice = originalPrice * (1 - discountRate);
 
   const displayOriginalPrice = !isLoggedIn ? '' :
-    new Intl.NumberFormat('tr-TR', { style: 'currency', currency: priceObj?.currency || 'TRY' }).format(originalPrice);
+    formatMoney(originalPrice, priceObj?.currency || 'TRY', locale);
 
   const displayFinalPrice = !isLoggedIn
-    ? 'Giriş yapınız'
+    ? p.loginForPrice
     : priceObj
-      ? new Intl.NumberFormat('tr-TR', { style: 'currency', currency: priceObj.currency }).format(finalPrice)
-      : 'Fiyat Yok';
+      ? formatMoney(finalPrice, priceObj.currency, locale)
+      : p.noPrice;
 
   const inStock = product.stockQuantity > 0;
   const canOrderSelectedUnit = availableQuantity > 0;
@@ -87,7 +88,7 @@ export default function ProductCard({ product }: { product: Product }) {
       unitName: unitObj.unitName,
       multiplier: unitObj.multiplier,
       quantity,
-      unitPrice: finalPrice, // İskontolu fiyat sepete atılır
+      unitPrice: finalPrice,
       currency: priceObj.currency,
       imageUrl: product.imageUrl,
     });
@@ -97,10 +98,10 @@ export default function ProductCard({ product }: { product: Product }) {
 
   const handleWaitlist = async () => {
     if (!user) {
-      alert("Haber ver listesine eklenmek için giriş yapmalısınız.");
+      alert(p.waitlistNeedLogin);
       return;
     }
-    
+
     try {
       const res = await fetch('/api/waitlist', {
         method: 'POST',
@@ -109,12 +110,12 @@ export default function ProductCard({ product }: { product: Product }) {
       });
       const data = await res.json();
       if (data.success) {
-        alert("Haber ver listesine eklendiniz!");
+        alert(p.waitlistOk);
       } else {
-        alert("Hata: " + data.error);
+        alert(p.errorPrefix + data.error);
       }
     } catch {
-      alert("Bir hata oluştu.");
+      alert(p.waitlistError);
     }
   };
 
@@ -124,7 +125,7 @@ export default function ProductCard({ product }: { product: Product }) {
         <Link
           href={`/urun/${product.id}`}
           className={styles.imageLink}
-          aria-label={`${product.name} ürün detayını görüntüle`}
+          aria-label={`${product.name} ${p.viewProduct}`}
         >
           <ImageIcon size={48} className={styles.placeholderImage} aria-hidden="true" />
           {product.imageUrl && (
@@ -141,25 +142,24 @@ export default function ProductCard({ product }: { product: Product }) {
             />
           )}
         </Link>
-        
-        {/* Stock Status Indicator */}
+
         {inStock ? (
-          <div className={styles.stockBadge} title="Stokta Var">
+          <div className={styles.stockBadge} title={p.inStockTitle}>
             <Check size={14} />
-            Stokta
+            {p.inStock}
           </div>
         ) : (
-          <div className={styles.stockBadge} style={{ background: 'var(--danger)' }} title="Stokta Yok">
-            Tükendi
+          <div className={styles.stockBadge} style={{ background: 'var(--danger)' }} title={p.outOfStockTitle}>
+            {p.outOfStock}
           </div>
         )}
 
-        <button 
+        <button
           type="button"
-          className={styles.heartBtn} 
+          className={styles.heartBtn}
           onClick={() => setIsFavorite(!isFavorite)}
           style={{ color: isFavorite ? 'var(--danger)' : '' }}
-          aria-label={isFavorite ? 'Favorilerden çıkar' : 'Favorilere ekle'}
+          aria-label={isFavorite ? p.removeFavorite : p.addFavorite}
           aria-pressed={isFavorite}
         >
           <Heart size={20} fill={isFavorite ? 'currentColor' : 'none'} />
@@ -173,9 +173,9 @@ export default function ProductCard({ product }: { product: Product }) {
             {product.name}
           </Link>
         </h3>
-        
+
         <div className={styles.priceArea}>
-          <span className={styles.priceLabel}>Bayi Fiyatı (KDV Hariç)</span>
+          <span className={styles.priceLabel}>{p.dealerPrice}</span>
           {isLoggedIn && discountRate > 0 && (
             <span style={{ textDecoration: 'line-through', fontSize: '0.875rem', color: 'var(--text-tertiary)' }}>
               {displayOriginalPrice}
@@ -187,62 +187,62 @@ export default function ProductCard({ product }: { product: Product }) {
         </div>
 
         <div className={styles.actionArea}>
-          <select 
+          <select
             className={styles.unitSelect}
             value={selectedUnitId}
             onChange={(e) => setSelectedUnitId(e.target.value)}
-            aria-label={`${product.name} için satış birimi`}
+            aria-label={`${product.name} ${p.unitLabel}`}
           >
             {product.units.map(unit => (
               <option key={unit.id} value={unit.id}>
-                {unit.unitName} {unit.multiplier > 1 ? `(${unit.multiplier} Adet)` : ''}
+                {unit.unitName} {unit.multiplier > 1 ? `(${unit.multiplier} ${p.pieces})` : ''}
               </option>
             ))}
           </select>
 
           <div className={styles.quantityControl}>
-            <button type="button" className={styles.qtyBtn} onClick={handleDecrease} disabled={quantity <= 1} aria-label="Adedi azalt"><Minus size={16} /></button>
-            <input 
-              type="number" 
-              className={styles.qtyInput} 
+            <button type="button" className={styles.qtyBtn} onClick={handleDecrease} disabled={quantity <= 1} aria-label={p.qtyDecrease}><Minus size={16} /></button>
+            <input
+              type="number"
+              className={styles.qtyInput}
               value={quantity}
               onChange={(e) => setQuantity(Math.max(1, Math.min(availableQuantity || 1, parseInt(e.target.value) || 1)))}
               min={1}
               max={availableQuantity || 1}
-              aria-label="Sipariş adedi"
+              aria-label={p.qtyLabel}
             />
-            <button type="button" className={styles.qtyBtn} onClick={handleIncrease} disabled={!canOrderSelectedUnit || quantity >= availableQuantity} aria-label="Adedi artır"><Plus size={16} /></button>
+            <button type="button" className={styles.qtyBtn} onClick={handleIncrease} disabled={!canOrderSelectedUnit || quantity >= availableQuantity} aria-label={p.qtyIncrease}><Plus size={16} /></button>
           </div>
 
           {inStock && canOrderSelectedUnit ? (
-            <button 
+            <button
               type="button"
               className={`${styles.addToCartBtn} ${addedFeedback ? styles.addedFeedback : ''}`}
               onClick={handleAddToCart}
             >
               {addedFeedback ? (
-                <><Check size={18} /> Eklendi!</>
+                <><Check size={18} /> {p.added}</>
               ) : (
-                <><ShoppingCart size={18} /> Sepete Ekle</>
+                <><ShoppingCart size={18} /> {p.addToCart}</>
               )}
             </button>
           ) : !inStock ? (
-            <button 
+            <button
               type="button"
               className={styles.addToCartBtn}
               style={{ background: 'var(--warning)', color: '#000' }}
               onClick={handleWaitlist}
             >
-              Gelince Haber Ver
+              {p.notifyMe}
             </button>
           ) : (
             <button
               type="button"
               className={styles.addToCartBtn}
               disabled
-              title="Seçilen satış birimi için yeterli stok yok"
+              title={p.insufficientStockTitle}
             >
-              Bu Birim İçin Stok Yetersiz
+              {p.insufficientStock}
             </button>
           )}
         </div>

@@ -99,7 +99,7 @@ export default function BannersPage() {
 
   return (
     <div>
-      <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '2rem', color: '#0f172a' }}>Afiş Yönetimi</h1>
+      <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '2rem', color: 'var(--text-primary)' }}>Afiş Yönetimi</h1>
 
       {/* Add New Banner */}
       <div style={{ backgroundColor: '#fff', padding: '1.5rem', borderRadius: '0.75rem', border: '1px solid #e2e8f0', marginBottom: '2rem' }}>
@@ -157,7 +157,7 @@ export default function BannersPage() {
             style={{ 
               alignSelf: 'flex-start',
               padding: '0.75rem 1.5rem', 
-              backgroundColor: '#2563eb', 
+              backgroundColor: 'var(--accent-primary)',
               color: 'white', 
               border: 'none', 
               borderRadius: '0.25rem',

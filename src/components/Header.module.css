@@ -1,34 +1,136 @@
 .header {
   position: sticky;
   top: 0;
-  z-index: 50;
-  background-color: var(--bg-elevated);
+  z-index: 100;
+  isolation: isolate;
+  background-color: var(--bg-header);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
   border-bottom: 1px solid var(--border-color);
   box-shadow: var(--shadow-sm);
-  transition: background-color 0.3s ease;
 }
 
 .topBar {
-  background-color: var(--bg-secondary);
-  padding: var(--spacing-xs) 0;
-  font-size: 0.875rem;
+  background-color: var(--bg-topbar);
+  border-bottom: 1px solid var(--border-color);
+  padding: 0.4rem 0;
+  font-size: 0.8125rem;
   color: var(--text-secondary);
+}
+
+.topBarInner {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.topBarRight {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .topBarLinks {
   display: flex;
+  align-items: center;
   gap: var(--spacing-md);
 }
 
 .topBarLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   transition: color 0.2s ease;
+  white-space: nowrap;
 }
 
 .topBarLink:hover {
   color: var(--accent-primary);
+}
+
+.prefControls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 1.75rem;
+  flex-shrink: 0;
+}
+
+.prefButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.prefButton:hover {
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.prefLabel {
+  line-height: 1;
+}
+
+.prefDivider {
+  width: 1px;
+  height: 1rem;
+  background: var(--border-color);
+}
+
+.langGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.15rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-elevated);
+}
+
+.langIcon {
+  margin-left: 0.25rem;
+  margin-right: 0.1rem;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.langBtn {
+  padding: 0.2rem 0.45rem;
+  border-radius: calc(var(--radius-md) - 2px);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-tertiary);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.langBtn:hover {
+  color: var(--text-primary);
+}
+
+.langBtnActive {
+  background: var(--accent-primary);
+  color: var(--text-inverse);
+}
+
+.langBtnActive:hover {
+  color: var(--text-inverse);
+}
+
+.mainBlock {
+  background-color: transparent;
 }
 
 .mainHeader {
@@ -53,7 +155,7 @@
 .logoIcon {
   width: 40px;
   height: 40px;
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  background: var(--accent-gradient);
   border-radius: 10px;
   display: flex;
   align-items: center;
@@ -79,12 +181,12 @@
   color: var(--text-primary);
   outline: none;
   font-size: 0.95rem;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .searchInput:focus {
   border-color: var(--accent-primary);
-  background-color: var(--bg-primary);
+  background-color: var(--bg-elevated);
   box-shadow: 0 0 0 3px var(--accent-light);
 }
 
@@ -152,6 +254,11 @@
   text-align: center;
 }
 
+.navBlock {
+  border-top: 1px solid var(--border-color);
+  background-color: var(--bg-elevated);
+}
+
 .nav {
   display: flex;
   gap: var(--spacing-sm);
@@ -159,6 +266,7 @@
   overflow-x: auto;
   scrollbar-width: none;
 }
+
 .nav::-webkit-scrollbar {
   display: none;
 }
@@ -178,17 +286,38 @@
   color: var(--accent-primary);
 }
 
+.navLinkHot {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .topBarNav {
+    display: none;
+  }
+
+  .prefLabel {
+    display: none;
+  }
+}
+
 @media (max-width: 768px) {
   .mainHeader {
     flex-wrap: wrap;
   }
+
   .searchForm {
     order: 3;
     max-width: 100%;
     flex-basis: 100%;
   }
+
   .topBarLinks {
     font-size: 0.75rem;
     gap: var(--spacing-sm);
+  }
+
+  .topBarInner {
+    flex-wrap: wrap;
   }
 }

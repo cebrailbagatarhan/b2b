@@ -14,6 +14,11 @@ type AddressCapabilityRow = {
   hasAddressSchema: number
 }
 
+type CustomerPhoneCapabilityRow = {
+  hasCustomerPhone: number
+  hasUniqueCustomerPhone: number
+}
+
 type CustomerStatusRow = {
   status: string
 }
@@ -63,6 +68,51 @@ export async function hasAddressSchema(): Promise<boolean> {
   `
 
   return Number(rows[0]?.hasAddressSchema ?? 0) === 1
+}
+
+async function getCustomerPhoneCapabilities(): Promise<CustomerPhoneCapabilityRow> {
+  const rows = await prisma.$queryRaw<CustomerPhoneCapabilityRow[]>`
+    SELECT
+      CAST(
+        CASE
+          WHEN COL_LENGTH(N'dbo.Customer', N'phone') IS NULL THEN 0
+          ELSE 1
+        END
+        AS INT
+      ) AS [hasCustomerPhone],
+      CAST(
+        CASE
+          WHEN EXISTS (
+            SELECT 1
+            FROM sys.indexes
+            WHERE [object_id] = OBJECT_ID(N'dbo.Customer')
+              AND [name] = N'UX_Customer_phone_not_null'
+              AND [is_unique] = 1
+              AND [has_filter] = 1
+          ) THEN 1
+          ELSE 0
+        END
+        AS INT
+      ) AS [hasUniqueCustomerPhone]
+  `
+
+  return {
+    hasCustomerPhone: Number(rows[0]?.hasCustomerPhone ?? 0),
+    hasUniqueCustomerPhone: Number(rows[0]?.hasUniqueCustomerPhone ?? 0),
+  }
+}
+
+export async function hasCustomerPhoneSchema(): Promise<boolean> {
+  const capability = await getCustomerPhoneCapabilities()
+  return capability.hasCustomerPhone === 1
+}
+
+export async function hasUniqueCustomerPhoneSchema(): Promise<boolean> {
+  const capability = await getCustomerPhoneCapabilities()
+  return (
+    capability.hasCustomerPhone === 1 &&
+    capability.hasUniqueCustomerPhone === 1
+  )
 }
 
 export async function getCustomerStatusForAuth(

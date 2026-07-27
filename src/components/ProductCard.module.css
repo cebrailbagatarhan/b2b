@@ -17,7 +17,7 @@
 .imageArea {
   position: relative;
   aspect-ratio: 1;
-  background-color: #f1f5f9;
+  background-color: var(--bg-secondary);
   display: flex;
   align-items: center;
   justify-content: center;

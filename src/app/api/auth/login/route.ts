@@ -5,7 +5,11 @@ import {
   isHashedPassword,
   verifyPassword,
 } from '@/lib/password'
-import { createSession, parseAdminRole } from '@/lib/session'
+import {
+  createCredentialVersion,
+  createSession,
+  parseAdminRole,
+} from '@/lib/session'
 import { getInactiveCustomerMessage } from '@/lib/customer-status'
 import { getCustomerStatusForAuth } from '@/lib/customer-schema-compat'
 import {
@@ -86,10 +90,12 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      if (!isHashedPassword(admin.password)) {
+      let storedPassword = admin.password
+      if (!isHashedPassword(storedPassword)) {
+        storedPassword = await hashPassword(password)
         await prisma.admin.update({
           where: { id: admin.id },
-          data: { password: await hashPassword(password) },
+          data: { password: storedPassword },
         })
       }
 
@@ -97,6 +103,7 @@ export async function POST(request: NextRequest) {
         userId: admin.id,
         role: 'ADMIN',
         adminRole,
+        credentialVersion: createCredentialVersion(storedPassword),
       })
       clearRateLimits(rateLimitKeys)
 
@@ -153,16 +160,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!isHashedPassword(customer.password)) {
+    let storedPassword = customer.password
+    if (!isHashedPassword(storedPassword)) {
+      storedPassword = await hashPassword(password)
       await prisma.customer.update({
         where: { id: customer.id },
-        data: { password: await hashPassword(password) },
+        data: { password: storedPassword },
       })
     }
 
     await createSession({
       userId: customer.id,
       role: 'CUSTOMER',
+      credentialVersion: createCredentialVersion(storedPassword),
     })
     clearRateLimits(rateLimitKeys)
 

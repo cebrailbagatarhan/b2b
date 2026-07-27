@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import {
   AdminRole,
   AuthorizationError,
+  credentialVersionMatches,
   parseAdminRole,
   requireSession,
 } from '@/lib/session'
@@ -31,11 +32,15 @@ export async function requireVerifiedSession(): Promise<VerifiedSession> {
   if (session.role === 'ADMIN') {
     const admin = await prisma.admin.findUnique({
       where: { id: session.userId },
-      select: { id: true, name: true, email: true, role: true },
+      select: { id: true, name: true, email: true, role: true, password: true },
     })
     const adminRole = admin ? parseAdminRole(admin.role) : null
 
-    if (!admin || !adminRole) {
+    if (
+      !admin ||
+      !adminRole ||
+      !credentialVersionMatches(session.credentialVersion, admin.password)
+    ) {
       throw new AuthorizationError('Oturum artık geçerli değil.', 401)
     }
 
@@ -50,10 +55,13 @@ export async function requireVerifiedSession(): Promise<VerifiedSession> {
 
   const customer = await prisma.customer.findUnique({
     where: { id: session.userId },
-    select: { id: true },
+    select: { id: true, password: true },
   })
 
-  if (!customer) {
+  if (
+    !customer ||
+    !credentialVersionMatches(session.credentialVersion, customer.password)
+  ) {
     throw new AuthorizationError('Oturum artık geçerli değil.', 401)
   }
 

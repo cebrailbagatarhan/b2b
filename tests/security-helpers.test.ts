@@ -2,7 +2,9 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  createCredentialVersion,
   createSessionToken,
+  credentialVersionMatches,
   getSessionSecret,
   verifySessionToken,
   type SessionPayload,
@@ -24,6 +26,10 @@ import {
 
 const TEST_SECRET = 'test-session-secret-with-more-than-32-characters'
 const NOW = Date.UTC(2026, 6, 15)
+const TEST_CREDENTIAL_VERSION = createCredentialVersion(
+  'stored-password-hash-v1',
+  TEST_SECRET
+)
 
 // NODE_ENV is typed as read-only in @types/node; tests still need to simulate
 // different runtime environments, so mutate through an untyped view.
@@ -38,6 +44,7 @@ test('signed session accepts an intact, unexpired token', () => {
   const payload: SessionPayload = {
     userId: 'customer-1',
     role: 'CUSTOMER',
+    credentialVersion: TEST_CREDENTIAL_VERSION,
     expiresAt: Math.floor(NOW / 1_000) + 60,
   }
   const token = createSessionToken(payload, TEST_SECRET)
@@ -50,6 +57,7 @@ test('signed session rejects tampering and expired tokens', () => {
     userId: 'admin-1',
     role: 'ADMIN',
     adminRole: 'SUPERADMIN',
+    credentialVersion: TEST_CREDENTIAL_VERSION,
     expiresAt: Math.floor(NOW / 1_000) + 60,
   }
   const token = createSessionToken(payload, TEST_SECRET)
@@ -67,6 +75,48 @@ test('signed session rejects tampering and expired tokens', () => {
     null
   )
   assert.ok(encodedPayload)
+})
+
+test('sessions are bound to the current stored password', () => {
+  const credentialVersion = createCredentialVersion(
+    'stored-password-hash-v1',
+    TEST_SECRET
+  )
+
+  assert.equal(
+    credentialVersionMatches(
+      credentialVersion,
+      'stored-password-hash-v1',
+      TEST_SECRET
+    ),
+    true
+  )
+  assert.equal(
+    credentialVersionMatches(
+      credentialVersion,
+      'stored-password-hash-v2',
+      TEST_SECRET
+    ),
+    false
+  )
+  assert.equal(
+    credentialVersionMatches(undefined, 'stored-password-hash-v1', TEST_SECRET),
+    false
+  )
+})
+
+test('legacy session tokens without a credential version are rejected', () => {
+  const legacyPayload = {
+    userId: 'customer-1',
+    role: 'CUSTOMER' as const,
+    expiresAt: Math.floor(NOW / 1_000) + 60,
+  }
+  const token = createSessionToken(
+    legacyPayload as unknown as SessionPayload,
+    TEST_SECRET
+  )
+
+  assert.equal(verifySessionToken(token, TEST_SECRET, NOW), null)
 })
 
 test('an anonymous request does not require a production secret', () => {

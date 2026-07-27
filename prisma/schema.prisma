@@ -12,6 +12,7 @@ model Customer {
   name         String
   email        String   @unique
   password     String
+  phone        String?  @db.VarChar(32)
   companyCode  String?
   taxId        String?
   status       String   @default("PENDING_APPROVAL") @db.VarChar(32)
@@ -26,6 +27,20 @@ model Customer {
   orders       Order[]
   waitlists    Waitlist[]
   addresses    Address[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id         String    @id @default(cuid())
+  customerId String
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tokenHash  String    @unique @db.VarChar(128)
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([customerId])
+  @@index([expiresAt])
 }
 
 model Address {

@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   Image as ImageIcon,
   LayoutDashboard,
+  ListChecks,
   LogOut,
   Package,
   ShoppingCart,
@@ -49,6 +50,12 @@ const allNavItems = [
     roles: ['SUPERADMIN', 'WAREHOUSE'],
   },
   {
+    name: 'Kanal Hazırlığı',
+    path: '/admin/kanal-hazirlik',
+    icon: ListChecks,
+    roles: ['SUPERADMIN', 'WAREHOUSE'],
+  },
+  {
     name: 'Afişler',
     path: '/admin/gorseller',
     icon: ImageIcon,
@@ -84,23 +91,28 @@ export default function AdminShell({ admin, children }: AdminShellProps) {
       style={{
         display: 'flex',
         minHeight: '100vh',
-        backgroundColor: '#f8fafc',
+        backgroundColor: 'var(--bg-secondary)',
       }}
     >
       <aside
         style={{
           width: '250px',
-          backgroundColor: '#ffffff',
-          borderRight: '1px solid #e2e8f0',
+          backgroundColor: 'var(--bg-primary)',
+          borderRight: '1px solid var(--border-color)',
           display: 'flex',
           flexDirection: 'column',
         }}
       >
         <div
-          style={{ padding: '1.5rem', borderBottom: '1px solid #e2e8f0' }}
+          style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)' }}
         >
           <h2
-            style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}
+            style={{
+              fontSize: '1.25rem',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              fontFamily: 'var(--font-display)',
+            }}
           >
             TopTan Yönetim
           </h2>
@@ -120,10 +132,10 @@ export default function AdminShell({ admin, children }: AdminShellProps) {
                   alignItems: 'center',
                   gap: '0.75rem',
                   padding: '0.75rem 1.5rem',
-                  color: isActive ? '#2563eb' : '#64748b',
-                  backgroundColor: isActive ? '#eff6ff' : 'transparent',
+                  color: isActive ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                  backgroundColor: isActive ? 'var(--accent-muted)' : 'transparent',
                   borderRight: isActive
-                    ? '3px solid #2563eb'
+                    ? '3px solid var(--accent-primary)'
                     : '3px solid transparent',
                   textDecoration: 'none',
                   fontWeight: isActive ? 600 : 500,
@@ -137,13 +149,13 @@ export default function AdminShell({ admin, children }: AdminShellProps) {
         </nav>
 
         <div
-          style={{ padding: '1.5rem', borderTop: '1px solid #e2e8f0' }}
+          style={{ padding: '1.5rem', borderTop: '1px solid var(--border-color)' }}
         >
           <div
             style={{
               marginBottom: '1rem',
               fontSize: '0.875rem',
-              color: '#64748b',
+              color: 'var(--text-secondary)',
             }}
           >
             <strong>{admin.name}</strong>
@@ -156,7 +168,7 @@ export default function AdminShell({ admin, children }: AdminShellProps) {
               display: 'flex',
               alignItems: 'center',
               gap: '0.5rem',
-              color: '#ef4444',
+              color: 'var(--danger)',
               backgroundColor: 'transparent',
               cursor: 'pointer',
               fontWeight: 500,

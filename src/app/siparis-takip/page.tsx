@@ -2,6 +2,11 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { requireVerifiedSession } from '@/lib/authorization'
 import { AuthorizationError } from '@/lib/session'
+import CancelOrderButton from '@/components/CancelOrderButton'
+import {
+  canCustomerCancelOrder,
+  parseOrderStatus,
+} from '@/lib/order-status'
 import {
   hasAddressSchema,
   hasOrderIntegritySchema,
@@ -34,7 +39,7 @@ const statusStyles: Record<
   PENDING_PAYMENT: { backgroundColor: '#fff7ed', color: '#c2410c' },
   PENDING_TRANSFER: { backgroundColor: '#fff7ed', color: '#c2410c' },
   APPROVED: { backgroundColor: '#ecfdf5', color: '#047857' },
-  PAID: { backgroundColor: '#eff6ff', color: '#1d4ed8' },
+  PAID: { backgroundColor: 'var(--accent-light)', color: 'var(--accent-pressed)' },
   PROCESSING: { backgroundColor: '#f5f3ff', color: '#6d28d9' },
   SHIPPED: { backgroundColor: '#ecfeff', color: '#0e7490' },
   COMPLETED: { backgroundColor: '#f0fdf4', color: '#15803d' },
@@ -203,6 +208,7 @@ export default async function OrderTrackingPage() {
                 backgroundColor: '#f1f5f9',
                 color: '#475569',
               }
+            const parsedStatus = parseOrderStatus(order.status)
 
             return (
               <article
@@ -297,6 +303,10 @@ export default async function OrderTrackingPage() {
                   </span>
                   </div>
                 </div>
+
+                {parsedStatus && canCustomerCancelOrder(parsedStatus) && (
+                  <CancelOrderButton orderId={order.id} />
+                )}
 
                 {order.shippingCity && (
                   <div

@@ -7,8 +7,12 @@ const globalForPrisma = globalThis as unknown as {
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
-    // Query logging is noisy and can leak data in production logs.
-    log: process.env.NODE_ENV === 'production' ? ['error', 'warn'] : ['query'],
+    // Query logging floods the terminal and adds memory pressure in long
+    // webpack-dev sessions; enable only when explicitly debugging Prisma.
+    log:
+      process.env.PRISMA_LOG_QUERIES === '1'
+        ? ['query', 'error', 'warn']
+        : ['error', 'warn'],
   })
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma

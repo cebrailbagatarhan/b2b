@@ -50,7 +50,7 @@ export default function AdminProductsPage() {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>Ürün Yönetimi</h1>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)' }}>Ürün Yönetimi</h1>
         <Link 
           href="/admin/urunler/yeni"
           style={{ 
@@ -58,7 +58,7 @@ export default function AdminProductsPage() {
             alignItems: 'center', 
             gap: '0.5rem', 
             padding: '0.75rem 1.5rem', 
-            backgroundColor: '#2563eb', 
+            backgroundColor: 'var(--accent-primary)',
             color: 'white', 
             textDecoration: 'none',
             borderRadius: '0.5rem',
@@ -83,8 +83,8 @@ export default function AdminProductsPage() {
             {products.map(product => (
               <tr key={product.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                 <td style={{ padding: '1rem', color: '#64748b', fontSize: '0.875rem' }}>{product.stockCode}</td>
-                <td style={{ padding: '1rem', color: '#0f172a', fontWeight: 500 }}>{product.name}</td>
-                <td style={{ padding: '1rem', textAlign: 'right', color: '#0f172a', fontWeight: 600 }}>{product.price} TL</td>
+                <td style={{ padding: '1rem', color: 'var(--text-primary)', fontWeight: 500 }}>{product.name}</td>
+                <td style={{ padding: '1rem', textAlign: 'right', color: 'var(--text-primary)', fontWeight: 600 }}>{product.price} TL</td>
                 <td style={{ padding: '1rem', textAlign: 'center' }}>
                   <button 
                     onClick={() => handleDelete(product.id)}

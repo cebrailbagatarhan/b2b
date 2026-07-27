@@ -4,6 +4,7 @@ import {
   calculateOrderLineAmounts,
   isCryptographicOrderKey,
   orderItemsMatch,
+  shippingSnapshotsMatch,
 } from '../src/lib/order-integrity'
 
 test('only canonical UUID v4 order keys are accepted', () => {
@@ -55,6 +56,32 @@ test('idempotent replay requires exactly the same normalized order lines', () =>
       { productId: null, unitId: null, quantity: 2 },
       { productId: 'p2', unitId: 'u2', quantity: 1 },
     ]),
+    false
+  )
+})
+
+test('idempotent replay includes the immutable shipping snapshot', () => {
+  const merkez = {
+    shippingTitle: 'Merkez Depo',
+    shippingFullName: 'Örnek Firma',
+    shippingPhone: '5551112233',
+    shippingCity: 'İstanbul',
+    shippingDistrict: 'Avcılar',
+    shippingAddressLine: 'Merkez Mah. No: 1',
+    shippingPostalCode: '34310',
+  }
+
+  assert.equal(shippingSnapshotsMatch(merkez, { ...merkez }), true)
+  assert.equal(
+    shippingSnapshotsMatch(merkez, {
+      ...merkez,
+      shippingAddressLine: 'Şube Mah. No: 2',
+    }),
+    false
+  )
+  assert.equal(shippingSnapshotsMatch(null, {}), true)
+  assert.equal(
+    shippingSnapshotsMatch(null, { shippingCity: 'İstanbul' }),
     false
   )
 })

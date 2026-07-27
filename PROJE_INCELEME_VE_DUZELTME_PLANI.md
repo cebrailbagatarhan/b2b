@@ -1,14 +1,16 @@
 # TopTan Market Proje İnceleme ve Düzeltme Planı
 
-Tarih: 15 Temmuz 2026  
+Tarih: 17 Temmuz 2026
 Kapsam: Next.js 16 uygulaması, Prisma/SQL Server veri modeli, mağaza, sepet, sipariş ve yönetim paneli  
-Durum: İnceleme tamamlandı, ilk güvenlik ve işlev düzeltme paketi uygulandı
+Durum: İnceleme tamamlandı; güvenlik paketi, ödeme güvenliği ve B2B/B2C/pazaryeri hazırlık merkezi uygulandı
 
 ## Kaynak Kullanımı Notu
 
 İnceleme sırasında `next dev` ile açılan Next.js 16 Turbopack geliştirme sunucusu dört Node işçisi oluşturdu. Birden fazla rota derlenirken toplam bellek kullanımı yaklaşık 8 GB seviyesine çıktı. Bu süreçlerin tamamı kapatıldı. Bundan sonraki çalışmalarda ağır geliştirme sunucusu, tam build ve tam typecheck kullanıcı onayı olmadan çalıştırılmayacak; doğrulamalar hedefli ve tek süreçli yapılacak.
 
-İlk paket tesliminde çalışan proje, test veya Next.js Node süreci bırakılmamıştı. 15 Temmuz 2026 admin giriş düzeltmesinden sonra, kullanıcının açık bırakma isteğiyle `127.0.0.1:3100` üzerinde tek Webpack geliştirme sunucusu 768 MB Node heap sınırıyla bilinçli olarak açık bırakıldı. Son giriş-geçmiş düzeltmesi sırasında geliştirme sunucusu kendi bellek eşiğinde bir kez otomatik yeniden başladı; final ölçümünde dinleyici süreç 833,9 MB çalışma kümesi kullanırken 4,17 GB fiziksel RAM boştu.
+İlk paket tesliminde çalışan proje, test veya Next.js Node süreci bırakılmamıştı. 15 Temmuz 2026 admin giriş düzeltmesinden sonra, kullanıcının açık bırakma isteğiyle `127.0.0.1:3100` üzerinde tek Webpack geliştirme sunucusu 768 MB Node heap sınırıyla geçici olarak açık bırakıldı. Bu sunucu daha sonra kapatıldı. 17 Temmuz 2026 son kontrolünde 15,73 GB toplam RAM'in yalnızca 2,14 GB'ı boştu ve 3000/3100 portlarında proje dinleyicisi yoktu. Bu nedenle güncel paket için Next sunucusu, tam build ve tam `tsc` açılmadı; projeye ait olduğu kanıtlanmayan küçük Node süreçlerine dokunulmadı.
+
+Kanal hazırlık paketinin son doğrulamasından önce 15,73 GB toplam RAM'in 2,94 GB'ı kullanılabilirdi. Makinedeki mevcut 16 küçük `node.exe` sürecinin projeye ait olduğu kanıtlanmadığı için hiçbirine dokunulmadı; 3000/3100 portları boştu. Kontroller yalnız tek süreç ve 256 MB heap sınırıyla çalıştırıldı.
 
 ## Projenin Mevcut Kabiliyetleri
 
@@ -19,6 +21,7 @@ Durum: İnceleme tamamlandı, ilk güvenlik ve işlev düzeltme paketi uyguland�
 - Bayiye özel iskonto ve cari risk limiti
 - Yerel tarayıcı sepeti ve hızlı stok kodu siparişi
 - Admin dashboard, müşteri listesi, ürün ve afiş yönetimi
+- B2B, B2C ve pazaryeri için ayrı sonuç veren kanal hazırlık merkezi ve güvenli CSV katalog raporu
 - Basit satış tahmini ve kritik stok görünümü
 
 ## Doğrulanmış Veritabanı Görünümü
@@ -104,6 +107,29 @@ Bu sipariş yapısı `scripts/mock-sales.ts` tarafından üretilen demo veriyle 
 - Durum: Uygulama ve şema kodu hazır; migration/cutover bekliyor.
 - Risk kontrolü, atomik stok azaltımı, bakiye güncellemesi, sipariş başlığı ve kalem snapshot'ları `Serializable` transaction içindedir.
 - Tarayıcı güvenli UUID v4 anahtarını aynı denemede tekrar kullanır; müşteri + anahtar benzersizliği aynı siparişin iki kez oluşmasını engeller.
+- Aynı anahtar farklı teslimat adresiyle tekrar kullanılırsa önceki sipariş dönülmez; istek açık hatayla reddedilir.
+
+### ORD-004 - Tamamlanmamış ödeme yöntemleri stok tutuyor
+
+- Durum: Uygulama katmanında güvenli biçimde kapatıldı; gerçek sağlayıcı ve banka mutabakatı bekliyor.
+- Kredi kartı, barındırılan ödeme sayfası ve imzalı webhook tamamlanana kadar hem arayüzde hem Server Action'da reddedilir.
+- Havale/EFT, gerçek banka hesabı ve mutabakat süreci tamamlanana kadar reddedilir; örnek banka/IBAN kaldırıldı.
+- Eski `PENDING_PAYMENT` ve `PENDING_TRANSFER` siparişlerinin sahibi, sipariş işleme alınmadan önce iptal ederek ayrılan stoğu Serializable transaction içinde yalnız bir kez geri bırakabilir.
+
+### CHN-001 - B2B/B2C/pazaryeri katalog hazırlığı görünmüyor
+
+- Durum: Salt-okunur hazırlık merkezi ve CSV denetimi eklendi; gerçek kanal adapter'ı ve veri modeli migration'ı bekliyor.
+- `/admin/kanal-hazirlik`, ürünleri B2B, B2C ve pazaryeri açısından ayrı değerlendirir; ilk 1.000 ürünü ekranda özetler.
+- `/api/admin/catalog-readiness`, tüm kataloğu 200 kayıtlık partilerle akış halinde UTF-8 CSV olarak verir; formül enjeksiyonu ve yetkisiz erişim engellenir.
+- Barkod, marka, model/varyant, KDV, desi, kategori özellikleri ve liste/satış fiyatı mevcut şemada olmadığı için değer uydurulmaz; ilgili kanal açıkça engelli gösterilir.
+- Ayrıntılı mimari ve uygulama sırası `PAZARYERI_B2B_B2C_EKSIKLER_VE_ENTEGRASYON_PLANI.md` dosyasındadır.
+
+### B2B-003 - Bayi fiyatı yalnız ekranda gizleniyor
+
+- Durum: Sunucu veri sınırında düzeltildi.
+- Önceki davranışta anonim kullanıcı fiyatı kartta göremese de herkese açık ürün Server Action yanıtındaki ham `prices` ilişkisini inceleyebilirdi.
+- Ürün listesi, arama, kategori, ürün detayı ve stok-kodu sorguları artık fiyatı yalnız doğrulanmış aktif müşteri veya doğrulanmış yönetici oturumuna döndürür.
+- Anonim, geçersiz, eski veya askıdaki oturumda ürün bilgisi korunur fakat `prices` dizisi sunucuda boşaltılır; istemci tarafı gizlemeye güvenilmez.
 
 ### B2B-001 - Açık kayıt finansal yetki veriyor
 
@@ -123,11 +149,34 @@ Bu sipariş yapısı `scripts/mock-sales.ts` tarafından üretilen demo veriyle 
 
 ### AUTH-002 - Girişten sonra geri tuşu eski giriş ekranını gösteriyor
 
-- Durum: Düzeltildi ve açık yerel sunucuda oturumlu yönlendirme testi geçti.
+- Durum: Düzeltildi; sunucu yönlendirmesi ve önbellekten geri dönüş senkronizasyonu hedefli testlerden geçti.
 - Kök neden: Başarılı girişten sonra `router.push()` kullanıldığı için `/giris` tarayıcı geçmişinde tutuluyordu; geri tuşu oturum çerezi hâlâ geçerliyken eski giriş ekranına dönebiliyordu.
-- Düzeltme: Giriş sonrası yönlendirme `router.replace()` ile geçmiş girdisini değiştiriyor. `/giris` artık sunucu tarafında imzalı oturumu ve kullanıcı kaydını doğruluyor; açık oturum varsa role uygun ana sayfaya yönlendiriyor.
+- Düzeltme: Giriş sonrası yönlendirme `router.replace()` ile geçmiş girdisini değiştiriyor. `/giris` artık sunucu tarafında imzalı oturumu ve kullanıcı kaydını doğruluyor; açık oturum varsa role uygun ana sayfaya yönlendiriyor. Tarayıcı `/giris` sayfasını bfcache'den geri yüklerse `pageshow` olayı sunucudaki `/api/auth/session` sonucunu yeniden doğruluyor ve yalnız doğrulanmış oturumda role uygun hedefe `replace` yapıyor.
 - Yönetici rolü hedefleri tek yardımcı fonksiyonda toplandı; beklenmeyen yönetici rolünün giriş ekranında döngüye girmesi yerine korumalı `/admin` köküne düşmesi sağlandı.
-- Doğrulama: 3/3 rol-yönlendirme testi geçti. Geçici ve sonrasında silinen bir test yöneticisiyle giriş `200`; oturumlu `/giris` isteği `307 → /admin` sonucu verdi.
+- Doğrulama: 5/5 gezinme testi geçti. Önceki canlı kontrolde geçici ve sonrasında silinen bir test yöneticisiyle giriş `200`; oturumlu `/giris` isteği `307 → /admin` sonucu verdi. 17 Temmuz paketinde RAM yetersizliği nedeniyle gerçek tarayıcı bfcache E2E testi tekrar çalıştırılmadı.
+
+### AUTH-003 - Parola değişince eski oturumlar açık kalıyor
+
+- Durum: Düzeltildi.
+- Kök neden: İmzalı oturumun süresi ve imzası doğrulansa da oturum, kullanıcının güncel parola kaydına bağlı değildi. Başka bir cihazdaki çerez, parola değiştikten sonra da süresi bitene kadar kullanılabiliyordu.
+- Düzeltme: Oturum yüküne, saklanan parola hash'inden `SESSION_SECRET` ile üretilen HMAC tabanlı `credentialVersion` eklendi. Her yetkilendirme güncel hash ile sabit-zamanlı karşılaştırma yapıyor; parola değiştiğinde tüm eski oturumlar reddediliyor. Parolayı değiştiren tarayıcının çerezi de en iyi çabayla silinip `/giris` sayfasına yönlendiriliyor.
+- Güvenli davranış: Güncel parola sürümüne ait meşru oturumlar çalışmaya devam ediyor. Eski format çerezler alanı taşımadığı için dağıtımdan sonra bir defalık yeniden giriş gerekecek.
+- Doğrulama: Güncel hash eşleşmesi, değiştirilmiş hash reddi ve eski-format oturum reddi hedefli testlerden geçti.
+
+### AUTH-004 - Parola sıfırlama bağlantısının üretim loguna sızması
+
+- Durum: Düzeltildi.
+- Kök neden: SMTP veya `nodemailer` bulunmadığında geliştirme önizlemesi için e-posta gövdesi ve sıfırlama URL'si loglanabiliyordu; aynı davranış üretimde token sızıntısına dönüşebilirdi.
+- Düzeltme: Üretimde SMTP eksikliği, taşıyıcı eksikliği ve gönderim hataları yalnızca genel, secretsız mesaj yazar. Gövde/URL önizlemesi sadece geliştirme ortamında korunur; fırlatılan taşıyıcı hata ayrıntıları üretim loguna aktarılmaz.
+- Doğrulama: SMTP yok, taşıyıcı yok, gönderim hatası ve başarılı gönderim sınırlarını kapsayan 5/5 test geçti; üretim loglarında e-posta gövdesi, URL veya token görünmedi.
+
+### B2B-002 - Sabit telefon doğrulama kodu üretimde kullanılabiliyor
+
+- Durum: Güvenlik açığı kodda kapatıldı; gerçek üretim kaydı SMS sağlayıcısı ve veritabanı indeksi tamamlanana kadar güvenli biçimde kapalıdır.
+- Kök neden: Demo doğrulama kodu ortam ayrımı olmadan kabul edilebiliyor, telefon kolonu da veritabanında benzersiz değildi.
+- Düzeltme: Sabit demo kodu yalnız geliştirmede kabul edilir ve ekranda yalnız geliştirmede gösterilir. Üretim kaydı gerçek tek-kullanımlık SMS sağlayıcısı olmadığı sürece açıklayıcı `503` döndürür. Kayıt, filtreli benzersiz telefon indeksi görülmeden de güvenli biçimde `503` ile durur.
+- Veritabanı hazırlığı: Migration; telefon biçimi, mevcut geçersiz değerler ve tekrarlar için ön kontrol yaptıktan sonra `UX_Customer_phone_not_null` filtreli benzersiz indeksini oluşturacak şekilde hazırlandı. Canlı salt-okunur kontrolde telefon kolonu vardı; indeks yoktu. Bir dolu telefon değeri geçerliydi, tekrar yoktu. Migration uygulanmadı.
+- Doğrulama: Geliştirmede demo kod kabulü, üretimde reddi ve gerçek kayıt Route Handler'ında geçerli telefon + sabit kod için `503`, bozuk telefon için `400` sonuçları test edildi.
 
 ### STK-001 - Yeni ürün stok adedi olmadan oluşturuluyor
 
@@ -169,49 +218,58 @@ Bu sipariş yapısı `scripts/mock-sales.ts` tarafından üretilen demo veriyle 
 - Sipariş idempotency anahtarı, başlık tutar snapshot'ları ve değişmez `OrderItem` kayıtları için şema, SQL ve uygulama entegrasyonu hazırlandı.
 - Ürün detay sayfası, ürün kartı detay bağlantıları ve sunucuda yeniden doğrulama uyarısı eklendi.
 - Salt-okunur SQL bağlantısını da sınayan `/api/health` rotası ve PID/RAM korumalı Webpack smoke testi eklendi.
+- Oturumlar parola hash'inin güncel sürümüne bağlandı; parola değişince tüm eski çerezler geçersiz oluyor.
+- Parola sıfırlama gönderiminde üretim loglarından e-posta gövdesi, URL, token ve taşıyıcı hata ayrıntıları çıkarıldı.
+- Geri tuşuyla bfcache'den dönen `/giris` sayfası sunucu oturumunu yeniden doğrulayacak şekilde güncellendi.
+- Sabit telefon doğrulama kodu üretimde kapatıldı; gerçek SMS ve benzersiz telefon indeksi hazır olana kadar üretim kaydı güvenli biçimde durduruldu.
+- Kanal hazırlık merkezi, tüm katalog CSV raporu ve B2B/B2C/pazaryeri ayrımlı engelleyici kuralları eklendi.
+- Sağlayıcısız kart/havale siparişleri kapatıldı; eski ödeme-bekleyen siparişlere güvenli müşteri iptali eklendi.
+- Bayi fiyatları anonim/geçersiz oturumlara gönderilmeden sunucu tarafında kaldırılıyor.
 
 ## P2 - Eksik Sayfalar ve Kullanıcı Deneyimi
 
 - Favoriler yalnız yerel kart state'i; kalıcı değil.
 - Ürün detay sayfası eklendi; kalıcı favori modeli ve ilgili ürün önerileri bekliyor.
 - Kampanyalar, banka hesapları, SSS, iade ve gizlilik sayfaları placeholder düzeyinde.
-- Ödeme ekranı demo; gerçek sağlayıcı, teslimat, fatura, kargo ve sözleşme adımları yok.
+- Checkout yalnız yetkili B2B cari hesabı kabul ediyor; gerçek kart/havale sağlayıcısı, fatura, kargo, tüketici sözleşmesi ve iade adımları yok.
 - Checkout, hızlı sipariş, admin ve sepet mobil görünümü eksik.
 - Ürün görselleri, ikon butonlar, form etiketleri ve slider için erişilebilirlik eksikleri var.
 
 ## P3 - Kalite, Sürümleme ve Dağıtım
 
-- ESLint: 26 hata, 14 uyarı
-- Güvenlik test dosyası: 1 (`tests/security-helpers.test.ts`)
-- Prisma migration: güvenli incremental taslak var; incelenmiş başlangıç baseline'ı henüz yok ve migration uygulanmadı.
-- `next-auth` bağımlılığı mevcut fakat kullanılmıyor.
+- Güncel güvenlik paketindeki değişen TypeScript/TSX ve test dosyaları hedefli ESLint kontrolünden hatasız geçti; bu paket üzerinde tam repo lint'i çalıştırılmadı.
+- Güvenlik/iş-kuralı/kanal hazırlık test paketi: 12 dosya, 49 test.
+- Prisma incremental migration dosyaları mevcut ve şema doğrulanıyor; ancak canlı veritabanında `_prisma_migrations` geçmişi ve incelenmiş başlangıç baseline'ı yok. Telefon kolonu mevcut, filtreli benzersiz telefon indeksi eksik. Canlı migration uygulanmadı.
+- Kullanılmayan `next-auth` bağımlılığı kaldırıldı.
 - Projenin büyük bölümü Git'te commitlenmemiş; yalnız ilk Create Next App commit'i var.
 - Yerel `public/uploads` yaklaşımı çok instance/serverless dağıtım için uygun değil.
 - README kurulum, secret, migration, parola geçişi ve RAM-dostu çalıştırma bilgileriyle yenilendi.
 
 ## Uygulama Sırası
 
-1. Mevcut düz metin parolaları yedekli ve kontrollü biçimde migrate edip zayıf demo parolalarını döndürmek
-2. Gerçek şemadan incelenmiş baseline üretmek, yedek/restore denemek ve hazırlanan incremental migration'ı test veritabanında uygulamak
-3. Prisma Client'ı migration cutover sırasında yeniden üretmek ve müşteri onayı + sipariş snapshot akışını entegrasyon testinden geçirmek
-4. Parasal alanları mutabakatlı `Decimal` kolonlarına geçirmek
-5. Gerçek ödeme/webhook, ödeme başarısızlığı/iptal/iade sonrası stok rezervasyonu çözümünü tamamlamak
-6. Kalıcı favoriler, adres, kargo, e-posta ve object storage entegrasyonlarını eklemek
-7. Mobil tasarım, kalan erişilebilirlik/lint/typecheck sorunları ve CI dağıtım hattını tamamlamak
+1. Canlı SQL Server'ın tam yedeğini alıp ayrı test veritabanında geri yüklemek; gerçek şemadan incelenmiş baseline üretmek
+2. Telefon verilerini mutabakatla doğrulayıp filtreli benzersiz telefon indeksini ve diğer incremental migration'ları önce test veritabanında uygulamak
+3. Gerçek tek-kullanımlık SMS sağlayıcısını seçip süre, deneme limiti ve tekrar-kullanım kontrolleriyle entegre etmek; ardından üretim kaydını açmak
+4. Kurumsal SMTP/işlem e-postası sağlayıcısını yapılandırıp gerçek teslimat ve parola sıfırlama uçtan uca testini yapmak
+5. Mevcut düz metin parolaları yedekli ve kontrollü biçimde migrate edip zayıf demo parolalarını döndürmek
+6. Ortak ürün modeline barkod, marka, model/varyant, KDV, çoklu görsel, özellik, desi ve liste/satış fiyatını kontrollü migration ile eklemek
+7. Parasal alanları mutabakatlı `Decimal` kolonlarına geçirmek; gerçek ödeme/webhook ve iptal/iade akışını tamamlamak
+8. Transactional outbox, kanal eşlemeleri, Trendyol V2 adapter'ı ve webhook + periyodik uzlaştırmayı staging üzerinde tamamlamak
+9. B2B fiyat listesi/vade ve B2C tüketici/fiyat/hukuki akışlarını tamamlamak
+10. Kalıcı favoriler, object storage, mobil/erişilebilirlik işleri, tam lint/typecheck/build ve CI dağıtım hattını tamamlamak
 
 ## Hafif Doğrulama Sonuçları
 
-- Başlangıç ölçümü: 15,73 GB toplam / 4,55 GB kullanılabilir RAM; projeye ait Node/Next süreci yoktu.
-- İlk teslimde 256 MB heap ile `node scripts/check-source-syntax.mjs`: 66 TypeScript dosyası geçti; son oturum/geçmiş düzeltmesinden sonra güncel sonuç 70/70 oldu.
-- 256 MB heap ile üç hedefli yardımcı test dosyası: 13 test geçti, 0 hata. Oturum, parola, rate limit, kategori slug'ı, müşteri durumu, idempotency eşleşmesi ve sipariş tutar yardımcıları kapsandı.
-- Giriş sonrası hedef ve yönetici rolü eşlemesi için eklenen 3 hedefli test de 256 MB heap sınırıyla geçti.
-- `prisma validate`: şema geçerli. Bu komut migration uygulamadı ve Prisma Client üretmedi.
-- İlk tek-sunuculu smoke taslağı 8 rotayı geçtikten sonra belirlenen 512 MB Node heap sınırında kontrollü olarak kapandı; sistemde 4,34 GB RAM boş kaldı. Test aracı daha sonra iki ayrı 5-rotalık gruba bölündü.
-- Son kontrollü Webpack smoke testi 10/10 sonucu geçti: `/api/health`, giriş, kayıt, ana sayfa, ürün 404, kategoriler, sepet, ödeme ekranı ve korumalı admin yönlendirmesi. Beklenen HTTP sonuçları `200`, ürün için `404`, yetkisiz admin için `/giris` yönlendirmeli `307` oldu.
-- Smoke sırasında proje süreç ağacı tepe değeri 722,02 MB, görülen en düşük kullanılabilir RAM 3,49 GB oldu. Süreçler kapanır kapanmaz 4,16 GB, son teslim ölçümünde 4,46 GB RAM boştu ve projeye ait Node/Next süreci kalmadı.
-- Tam `next build`, tam `tsc`, tam lint, veritabanı migration'ı, seed ve veri yazan sipariş testi çalıştırılmadı.
-- Yeni müşteri onayı ve sipariş snapshot akışının gerçek SQL Server entegrasyon testi, yedek + incelenmiş baseline + test veritabanı sonrasına bırakıldı.
-- Admin giriş olayı sırasında SQL Server salt-okunur katalog kontrolüyle `Customer.status`, `OrderItem` ve `Order.idempotencyKey` alanlarının henüz uygulanmadığı doğrulandı; admin kaydı, rolü ve parola hash'i geçerliydi.
+- 17 Temmuz 2026 kanal paketi öncesi ölçüm: 15,73 GB toplam / 2,94 GB kullanılabilir RAM. Son kontrol sonrasında 3,58 GB kullanılabilirdi. 3000/3100 portlarında proje dinleyicisi yoktu; sunucu açılmadı.
+- `NODE_OPTIONS=--max-old-space-size=256` ile kaynak sözdizimi kontrolü: 112/112 TypeScript dosyası geçti.
+- Aynı 256 MB heap sınırıyla `npm run test:security`: 12 dosyada 49/49 test geçti.
+- Değişen TypeScript/TSX ve test dosyalarının hedefli ESLint kontrolü hatasız tamamlandı.
+- `npx --no-install prisma validate`: Prisma şeması geçerli. Migration uygulanmadı ve veri yazılmadı.
+- `git diff --check`: yalnız satır sonu dönüşümü uyarılarıyla temiz; boşluk hatası yok.
+- Canlı SQL Server'a salt-okunur katalog/veri kontrolü: modern şema nesneleri mevcut ve temel bütünlük kontrolleri temiz; `_prisma_migrations` tablosu yok. `Customer.phone` var, `UX_Customer_phone_not_null` yok; 1 dolu telefon geçerli, tekrar yok.
+- Oturum sürümü, eski oturum reddi, üretim e-posta logu, üretim demo telefon kodu reddi ve bfcache yönlendirme kararları hedefli testlerle doğrulandı.
+- Bu güncel paket üzerinde tam `next build`, tam `tsc`, tam repo lint'i, Next sunucusu/tarayıcı E2E, gerçek SMTP teslimatı, gerçek SMS teslimatı, veritabanı migration'ı, seed veya veri yazan entegrasyon testi çalıştırılmadı.
+- Önceki 15 Temmuz kontrollü Webpack smoke testi 10/10 rotayı geçmişti; bu tarihsel sonuç güncel güvenlik paketinin tarayıcı E2E kanıtı olarak kabul edilmedi.
 
 ## Değişiklik Günlüğü
 
@@ -226,3 +284,5 @@ Bu sipariş yapısı `scripts/mock-sales.ts` tarafından üretilen demo veriyle 
 - 2026-07-15: Prisma Client şemadan yeniden üretildi; 53 tip hatası ve 30 lint sorunu sıfırlandı. `useHydrated` hook'u, `next-auth` kaldırma, üretimde sorgu logu kapatma ve `.gitignore` düzeltmeleri yapıldı. Tam `tsc`, lint, 16 test ve `next build` temiz geçti.
 - 2026-07-15: Teslimat adresi paketi eklendi: `Address` modeli, `Order` üzerinde değişmez kargo snapshot kolonları, `20260715130000_address_and_shipping_snapshot` incremental migration taslağı, checkout'ta adres seçimi/ekleme, `hasAddressSchema()` ile migration öncesi geriye uyumluluk. Adres migration'ı uygulanana kadar sipariş adres istemez; uygulandıktan sonra zorunlu olur.
 - 2026-07-15: Admin sipariş durumu yönetimi eklendi: `src/lib/order-status.ts` durum makinesi (rol bazlı yetkiler: ACCOUNTING ödeme onayı, WAREHOUSE sevkiyat, SUPERADMIN iptal), `updateOrderStatus` Server Action'ı Serializable transaction içinde iptalde stok ve cari bakiyeyi geri alıyor; kalem snapshot'ı olmayan eski siparişlerde otomatik iptal reddediliyor. 6 yeni durum-makinesi testiyle toplam 22 test geçti.
+- 2026-07-17: Parola değişiminde tüm eski oturumları geçersiz kılan credential sürümü, üretimde secretsız e-posta loglama, bfcache geri-dönüş oturum doğrulaması ve üretimde demo telefon kodunu kapatan güvenli kayıt kapısı eklendi. Telefon için filtreli benzersiz indeks migration'ı hazırlandı fakat uygulanmadı. 101/101 sözdizimi, 36/36 test, hedefli ESLint ve Prisma doğrulaması geçti; yalnız 2,14 GB RAM boş olduğu için sunucu/build/tsc açılmadı.
+- 2026-07-17: B2B/B2C/pazaryeri kanal hazırlık merkezi ve akış halinde güvenli CSV eklendi. Sağlayıcısız kart/havale siparişleri sunucuda kapatıldı, örnek IBAN kaldırıldı, eski ödeme-bekleyen siparişlere güvenli müşteri iptali, idempotency anahtarına teslimat snapshot kontrolü ve bayi fiyatlarına sunucu tarafı erişim sınırı eklendi. 112/112 sözdizimi, 49/49 hedefli test ve hedefli ESLint geçti; kontrol öncesi 2,94 GB, sonrasında 3,58 GB RAM kullanılabilirdi. Sunucu/build/tsc açılmadı.

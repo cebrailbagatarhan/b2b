@@ -48,7 +48,7 @@
   overflow: hidden;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-xl);
-  background: #f8fafc;
+  background: var(--bg-secondary);
   box-shadow: var(--shadow-sm);
 }
 

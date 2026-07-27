@@ -1,6 +1,10 @@
 -- IMPORTANT: This is an incremental migration for the already-populated SQL Server
 -- database. It is not a complete baseline for a new/empty database. Read
 -- prisma/migrations/README.md before applying it through Prisma Migrate.
+--
+-- Newly added columns that are immediately updated/altered are touched through
+-- dynamic SQL so SQL Server does not fail batch compilation with
+-- "Invalid column name".
 
 SET XACT_ABORT ON;
 
@@ -49,10 +53,12 @@ BEGIN TRY
     -- Existing customers predate approval workflow, so they remain active. New
     -- customers receive PENDING_APPROVAL through the database default.
     ALTER TABLE [dbo].[Customer] ADD [status] VARCHAR(32) NULL;
-    UPDATE [dbo].[Customer]
-    SET [status] = 'ACTIVE'
-    WHERE [status] IS NULL;
-    ALTER TABLE [dbo].[Customer] ALTER COLUMN [status] VARCHAR(32) NOT NULL;
+    EXEC(N'
+        UPDATE [dbo].[Customer]
+        SET [status] = ''ACTIVE''
+        WHERE [status] IS NULL;
+        ALTER TABLE [dbo].[Customer] ALTER COLUMN [status] VARCHAR(32) NOT NULL;
+    ');
     ALTER TABLE [dbo].[Customer]
         ADD CONSTRAINT [Customer_status_df]
         DEFAULT 'PENDING_APPROVAL' FOR [status];
@@ -62,6 +68,7 @@ BEGIN TRY
     -- by future inserts. The current constraint name is discovered from SQL
     -- Server metadata because older schemas may have generated a different name.
     DECLARE @RiskLimitDefaultConstraint SYSNAME;
+    DECLARE @DropRiskLimitDefaultSql NVARCHAR(500);
     SELECT @RiskLimitDefaultConstraint = [dc].[name]
     FROM [sys].[default_constraints] AS [dc]
     INNER JOIN [sys].[columns] AS [c]
@@ -71,8 +78,10 @@ BEGIN TRY
 
     IF @RiskLimitDefaultConstraint IS NOT NULL
     BEGIN
-        EXEC(N'ALTER TABLE [dbo].[Customer] DROP CONSTRAINT ['
-            + REPLACE(@RiskLimitDefaultConstraint, N']', N']]') + N']');
+        SET @DropRiskLimitDefaultSql =
+            N'ALTER TABLE [dbo].[Customer] DROP CONSTRAINT '
+            + QUOTENAME(@RiskLimitDefaultConstraint);
+        EXEC(@DropRiskLimitDefaultSql);
     END;
 
     ALTER TABLE [dbo].[Customer]
@@ -90,19 +99,21 @@ BEGIN TRY
     -- Historical rows do not contain enough information to reconstruct the original
     -- pre-discount subtotal. Preserve the recorded total and mark the legacy snapshot
     -- as a zero-discount equivalent; see NOTES.md.
-    UPDATE [dbo].[Order]
-    SET
-        [idempotencyKey] = 'legacy:' + CONVERT(VARCHAR(121), [id]),
-        [subtotalAmount] = [totalAmount],
-        [discountRate] = 0,
-        [discountAmount] = 0,
-        [currency] = 'TRY';
+    EXEC(N'
+        UPDATE [dbo].[Order]
+        SET
+            [idempotencyKey] = ''legacy:'' + CONVERT(VARCHAR(121), [id]),
+            [subtotalAmount] = [totalAmount],
+            [discountRate] = 0,
+            [discountAmount] = 0,
+            [currency] = ''TRY'';
 
-    ALTER TABLE [dbo].[Order] ALTER COLUMN [idempotencyKey] VARCHAR(128) NOT NULL;
-    ALTER TABLE [dbo].[Order] ALTER COLUMN [subtotalAmount] FLOAT(53) NOT NULL;
-    ALTER TABLE [dbo].[Order] ALTER COLUMN [discountRate] FLOAT(53) NOT NULL;
-    ALTER TABLE [dbo].[Order] ALTER COLUMN [discountAmount] FLOAT(53) NOT NULL;
-    ALTER TABLE [dbo].[Order] ALTER COLUMN [currency] VARCHAR(3) NOT NULL;
+        ALTER TABLE [dbo].[Order] ALTER COLUMN [idempotencyKey] VARCHAR(128) NOT NULL;
+        ALTER TABLE [dbo].[Order] ALTER COLUMN [subtotalAmount] FLOAT(53) NOT NULL;
+        ALTER TABLE [dbo].[Order] ALTER COLUMN [discountRate] FLOAT(53) NOT NULL;
+        ALTER TABLE [dbo].[Order] ALTER COLUMN [discountAmount] FLOAT(53) NOT NULL;
+        ALTER TABLE [dbo].[Order] ALTER COLUMN [currency] VARCHAR(3) NOT NULL;
+    ');
 
     ALTER TABLE [dbo].[Order]
         ADD CONSTRAINT [Order_discountRate_df] DEFAULT 0 FOR [discountRate];

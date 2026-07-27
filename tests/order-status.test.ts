@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   ORDER_STATUSES,
   ORDER_STATUS_LABELS,
+  canCustomerCancelOrder,
   canRoleSetStatus,
   cancellationEffects,
   isTransitionAllowed,
@@ -41,6 +42,15 @@ test('terminal statuses cannot be changed', () => {
 test('shipped orders can no longer be cancelled', () => {
   assert.equal(isTransitionAllowed('SHIPPED', 'CANCELLED'), false)
   assert.ok(isTransitionAllowed('PROCESSING', 'CANCELLED'))
+})
+
+test('customers can only cancel unpaid and unprocessed orders', () => {
+  assert.equal(canCustomerCancelOrder('PENDING_PAYMENT'), true)
+  assert.equal(canCustomerCancelOrder('PENDING_TRANSFER'), true)
+  assert.equal(canCustomerCancelOrder('APPROVED'), false)
+  assert.equal(canCustomerCancelOrder('PROCESSING'), false)
+  assert.equal(canCustomerCancelOrder('SHIPPED'), false)
+  assert.equal(canCustomerCancelOrder('CANCELLED'), false)
 })
 
 test('roles only reach the statuses they own', () => {

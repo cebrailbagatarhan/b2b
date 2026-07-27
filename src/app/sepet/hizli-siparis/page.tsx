@@ -126,7 +126,7 @@ function BulkOrderContent() {
       </div>
 
       {proxyUser && (
-        <div style={{ padding: '1rem', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '0.5rem', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#1e40af' }}>
+        <div style={{ padding: '1rem', backgroundColor: 'var(--accent-light)', border: '1px solid var(--accent-muted)', borderRadius: '0.5rem', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--accent-pressed)' }}>
           <UserIcon size={20} />
           <span>Şu an <strong>{proxyUser.name}</strong> adına sipariş giriyorsunuz. İskonto oranı: <strong>%{((proxyUser.discountRate||0)*100).toFixed(0)}</strong></span>
         </div>

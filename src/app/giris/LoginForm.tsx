@@ -89,6 +89,18 @@ export default function LoginForm() {
               onChange={(event) => setPassword(event.target.value)}
               required
             />
+            <div style={{ marginTop: '0.5rem', textAlign: 'right' }}>
+              <Link
+                href="/sifremi-unuttum"
+                style={{
+                  color: 'var(--accent-primary)',
+                  fontSize: '0.8125rem',
+                  fontWeight: 500,
+                }}
+              >
+                Şifremi unuttum
+              </Link>
+            </div>
           </div>
 
           <button

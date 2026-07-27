@@ -75,7 +75,7 @@ export default function OrderStatusControl({ orderId, options }: Props) {
             padding: '0.375rem 0.75rem',
             borderRadius: '0.375rem',
             border: 'none',
-            backgroundColor: selected ? '#2563eb' : '#e2e8f0',
+            backgroundColor: selected ? 'var(--accent-primary)' : '#e2e8f0',
             color: selected ? '#fff' : '#94a3b8',
             fontSize: '0.8125rem',
             fontWeight: 600,

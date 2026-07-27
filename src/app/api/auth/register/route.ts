@@ -3,7 +3,15 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { hashPassword } from '@/lib/password'
 import { consumeRateLimit, opaqueRateLimitKey } from '@/lib/rate-limit'
-import { hasCustomerApprovalSchema } from '@/lib/customer-schema-compat'
+import {
+  hasCustomerApprovalSchema,
+  hasUniqueCustomerPhoneSchema,
+} from '@/lib/customer-schema-compat'
+import {
+  isDemoPhoneVerificationEnabled,
+  isDemoPhoneVerificationCode,
+  normalizeTurkeyPhone,
+} from '@/lib/phone'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const REGISTRATION_WINDOW_MS = 60 * 60 * 1_000
@@ -14,10 +22,13 @@ export async function POST(request: NextRequest) {
     const name = typeof body.name === 'string' ? body.name.trim() : ''
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
     const password = typeof body.password === 'string' ? body.password : ''
+    const phoneRaw = typeof body.phone === 'string' ? body.phone : ''
+    const verificationCode =
+      typeof body.verificationCode === 'string' ? body.verificationCode : ''
 
-    if (!name || !email || !password) {
+    if (!name || !email || !password || !phoneRaw) {
       return NextResponse.json(
-        { success: false, error: 'Ad, e-posta ve şifre gereklidir.' },
+        { success: false, error: 'Ad, e-posta, telefon ve şifre gereklidir.' },
         { status: 400 }
       )
     }
@@ -36,10 +47,54 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const phone = normalizeTurkeyPhone(phoneRaw)
+    if (!phone) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Geçerli bir cep telefonu girin (5XX XXX XX XX).',
+        },
+        { status: 400 }
+      )
+    }
+
+    if (!isDemoPhoneVerificationEnabled()) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'Telefon doğrulama sağlayıcısı henüz yapılandırılmadı. Kayıt geçici olarak kapalıdır.',
+        },
+        { status: 503 }
+      )
+    }
+
+    if (!isDemoPhoneVerificationCode(verificationCode)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'Telefon doğrulama kodu hatalı. Demo kod: 123456 (SMS gönderilmez).',
+        },
+        { status: 400 }
+      )
+    }
+
     if (password.length < 8 || password.length > 128) {
       return NextResponse.json(
         { success: false, error: 'Şifre 8-128 karakter olmalıdır.' },
         { status: 400 }
+      )
+    }
+
+    if (!(await hasUniqueCustomerPhoneSchema())) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'Telefon tekilliği için veritabanı geçişi henüz tamamlanmadı.',
+        },
+        { status: 503 }
       )
     }
 
@@ -51,14 +106,19 @@ export async function POST(request: NextRequest) {
       opaqueRateLimitKey('register-email', email),
       { limit: 3, windowMs: REGISTRATION_WINDOW_MS }
     )
+    const phoneLimit = consumeRateLimit(
+      opaqueRateLimitKey('register-phone', phone),
+      { limit: 3, windowMs: REGISTRATION_WINDOW_MS }
+    )
     const ipLimit = consumeRateLimit(
       opaqueRateLimitKey('register-ip', clientAddress),
       { limit: 10, windowMs: REGISTRATION_WINDOW_MS }
     )
 
-    if (!emailLimit.allowed || !ipLimit.allowed) {
+    if (!emailLimit.allowed || !phoneLimit.allowed || !ipLimit.allowed) {
       const retryAfter = Math.max(
         emailLimit.retryAfterSeconds,
+        phoneLimit.retryAfterSeconds,
         ipLimit.retryAfterSeconds
       )
       return NextResponse.json(
@@ -73,7 +133,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const [existingCustomer, existingAdmin] = await Promise.all([
+    const [existingCustomer, existingAdmin, existingPhone] = await Promise.all([
       prisma.customer.findUnique({
         where: { email },
         select: { id: true },
@@ -82,11 +142,22 @@ export async function POST(request: NextRequest) {
         where: { email },
         select: { id: true },
       }),
+      prisma.customer.findFirst({
+        where: { phone },
+        select: { id: true },
+      }),
     ])
 
     if (existingCustomer || existingAdmin) {
       return NextResponse.json(
         { success: false, error: 'Bu e-posta adresi zaten kullanılıyor.' },
+        { status: 400 }
+      )
+    }
+
+    if (existingPhone) {
+      return NextResponse.json(
+        { success: false, error: 'Bu telefon numarası zaten kayıtlı.' },
         { status: 400 }
       )
     }
@@ -106,6 +177,7 @@ export async function POST(request: NextRequest) {
       data: {
         name,
         email,
+        phone,
         password: await hashPassword(password),
         status: 'PENDING_APPROVAL',
         riskLimit: 0,
@@ -115,6 +187,7 @@ export async function POST(request: NextRequest) {
         id: true,
         name: true,
         email: true,
+        phone: true,
         status: true,
         createdAt: true,
       },
@@ -136,7 +209,7 @@ export async function POST(request: NextRequest) {
       error.code === 'P2002'
     ) {
       return NextResponse.json(
-        { success: false, error: 'Bu e-posta adresi zaten kullanılıyor.' },
+        { success: false, error: 'Bu e-posta veya telefon zaten kullanılıyor.' },
         { status: 409 }
       )
     }

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { CreditCard, Building2, Wallet, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Wallet, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useCartStore, useAuthStore } from '@/lib/store';
 import { useHydrated } from '@/lib/use-hydrated';
 import { createOrder } from '@/app/actions';
@@ -16,7 +16,7 @@ export default function CheckoutPage() {
   const totalAmount = useCartStore(s => s.totalAmount());
   const clearCart = useCartStore(s => s.clearCart);
 
-  const [paymentMethod, setPaymentMethod] = useState<'CREDIT_CARD' | 'TRANSFER' | 'OPEN_ACCOUNT'>('CREDIT_CARD');
+  const paymentMethod = 'OPEN_ACCOUNT' as const;
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
@@ -24,16 +24,6 @@ export default function CheckoutPage() {
   const [addressRequired, setAddressRequired] = useState(false);
   const isMounted = useHydrated();
   const idempotencyKeyRef = useRef<string | null>(null);
-
-  const changePaymentMethod = (
-    nextMethod: 'CREDIT_CARD' | 'TRANSFER' | 'OPEN_ACCOUNT'
-  ) => {
-    if (loading || nextMethod === paymentMethod) return;
-    setPaymentMethod(nextMethod);
-    // A changed payment method is a new order intent. Failed retries of the
-    // same intent keep their key, but a different payload must receive a new one.
-    idempotencyKeyRef.current = null;
-  };
 
   const handleSelectAddress = useCallback((addressId: string | null) => {
     setSelectedAddressId((current) => {
@@ -52,8 +42,8 @@ export default function CheckoutPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!effectiveUser) {
-      alert('Sipariş vermek için giriş yapmalısınız.');
+    if (!effectiveUser || effectiveUser.role !== 'CUSTOMER') {
+      alert('Cari sipariş vermek için aktif bir müşteri hesabı seçmelisiniz.');
       router.push('/giris');
       return;
     }
@@ -103,8 +93,9 @@ export default function CheckoutPage() {
         <CheckCircle2 size={64} color="#10b981" style={{ margin: '0 auto 1.5rem' }} />
         <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '1rem' }}>Siparişiniz Alındı!</h1>
         <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
-          Teşekkür ederiz. Siparişiniz başarıyla sistemimize düştü. {paymentMethod === 'CREDIT_CARD' && 'Kart bilgisi alınmadı; siparişiniz güvenli ödeme sağlayıcısı entegrasyonu tamamlanana kadar ödeme bekliyor.'} {paymentMethod === 'TRANSFER' && 'Havale/EFT işleminiz onaylandıktan sonra ürünleriniz kargoya verilecektir.'}
-          {paymentMethod === 'OPEN_ACCOUNT' && 'Tutar cari hesabınıza işlendi ve siparişiniz onaylandı. En kısa sürede kargolanacaktır.'}
+          Teşekkür ederiz. Siparişiniz başarıyla sistemimize düştü. Tutar cari
+          hesabınıza işlendi ve siparişiniz onaylandı. En kısa sürede
+          hazırlanmaya başlayacaktır.
         </p>
         {createdOrderId && (
           <p style={{ marginBottom: '2rem', fontWeight: 600, overflowWrap: 'anywhere' }}>
@@ -147,69 +138,37 @@ export default function CheckoutPage() {
             />
           )}
 
-          <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
-            <button 
-              type="button"
-              onClick={() => changePaymentMethod('CREDIT_CARD')}
-              disabled={loading}
-              style={{ flex: 1, padding: '1rem', border: paymentMethod === 'CREDIT_CARD' ? '2px solid var(--accent-primary)' : '1px solid var(--border)', borderRadius: '0.5rem', backgroundColor: 'var(--bg-card)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontWeight: 500, color: paymentMethod === 'CREDIT_CARD' ? 'var(--accent-primary)' : 'inherit' }}
+          <div
+            style={{
+              display: 'grid',
+              gap: '0.75rem',
+              marginBottom: '2rem',
+              padding: '1rem',
+              border: '1px solid var(--border)',
+              borderRadius: '0.75rem',
+              backgroundColor: 'var(--bg-card)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                color: 'var(--accent-primary)',
+                fontWeight: 700,
+              }}
             >
-              <CreditCard size={20} /> Kredi Kartı
-            </button>
-            <button 
-              type="button"
-              onClick={() => changePaymentMethod('TRANSFER')}
-              disabled={loading}
-              style={{ flex: 1, padding: '1rem', border: paymentMethod === 'TRANSFER' ? '2px solid var(--accent-primary)' : '1px solid var(--border)', borderRadius: '0.5rem', backgroundColor: 'var(--bg-card)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontWeight: 500, color: paymentMethod === 'TRANSFER' ? 'var(--accent-primary)' : 'inherit' }}
-            >
-              <Building2 size={20} /> Havale / EFT
-            </button>
-            {effectiveUser?.role === 'CUSTOMER' && (
-              <button 
-                type="button"
-                onClick={() => changePaymentMethod('OPEN_ACCOUNT')}
-                disabled={loading}
-                style={{ flex: 1, padding: '1rem', border: paymentMethod === 'OPEN_ACCOUNT' ? '2px solid var(--accent-primary)' : '1px solid var(--border)', borderRadius: '0.5rem', backgroundColor: 'var(--bg-card)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontWeight: 500, color: paymentMethod === 'OPEN_ACCOUNT' ? 'var(--accent-primary)' : 'inherit' }}
-              >
-                <Wallet size={20} /> Cari Hesap
-              </button>
-            )}
+              <Wallet size={20} /> Cari Hesap
+            </div>
+            <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              Kredi kartı ve Havale/EFT; gerçek ödeme sağlayıcısı, doğrulanmış
+              webhook, banka hesabı ve mutabakat süreci tamamlanana kadar
+              güvenlik nedeniyle kapalıdır. Bu yöntemlerle sipariş oluşturulmaz
+              ve stok tutulmaz.
+            </p>
           </div>
 
           <form id="checkout-form" onSubmit={handleSubmit} style={{ backgroundColor: 'var(--bg-card)', padding: '2rem', borderRadius: '0.75rem', border: '1px solid var(--border)' }}>
-            
-            {paymentMethod === 'CREDIT_CARD' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 600, borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>Kredi Kartı ile Ödeme</h2>
-
-                <div style={{ padding: '1rem', backgroundColor: '#eff6ff', borderRadius: '0.5rem', fontSize: '0.875rem', color: '#1e3a8a' }}>
-                  <p><strong>Güvenlik bilgisi:</strong> Ödeme sağlayıcısı henüz bağlı olmadığı için bu uygulama kart numarası, son kullanma tarihi veya CVV toplamaz. Sipariş “ödeme bekliyor” durumunda oluşturulur; gerçek ödeme yalnız sağlayıcının güvenli sayfasında alınmalıdır.</p>
-                </div>
-              </div>
-            )}
-
-            {paymentMethod === 'TRANSFER' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 600, borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>Havale / EFT Bilgileri</h2>
-                <p style={{ color: 'var(--text-secondary)' }}>Lütfen ödemeyi aşağıdaki banka hesabımıza yapın. Açıklama kısmına kayıtlı telefon numaranızı veya e-postanızı yazmayı unutmayın.</p>
-                
-                <div style={{ backgroundColor: '#f8fafc', padding: '1.5rem', borderRadius: '0.5rem', border: '1px dashed #cbd5e1' }}>
-                  <div style={{ marginBottom: '1rem' }}>
-                    <div style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '0.25rem' }}>Banka</div>
-                    <div style={{ fontWeight: 600 }}>Garanti BBVA</div>
-                  </div>
-                  <div style={{ marginBottom: '1rem' }}>
-                    <div style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '0.25rem' }}>Alıcı Adı</div>
-                    <div style={{ fontWeight: 600 }}>TopTan Market Tic. A.Ş.</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '0.25rem' }}>IBAN</div>
-                    <div style={{ fontWeight: 600, fontFamily: 'monospace', fontSize: '1.1rem', color: 'var(--accent-primary)' }}>TR00 0000 0000 0000 0000 0000 00</div>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {paymentMethod === 'OPEN_ACCOUNT' && effectiveUser?.role === 'CUSTOMER' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 600, borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>Cari Hesap Bilgileri {proxyUser ? `(${proxyUser.name})` : ''}</h2>
@@ -230,7 +189,7 @@ export default function CheckoutPage() {
                     <AlertCircle size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
                     <div>
                       <strong>Limit Yetersiz!</strong>
-                      <p style={{ marginTop: '0.25rem', fontSize: '0.875rem' }}>Bu sipariş risk limitinizi aştığı için Cari Hesap ile ödeme yapamazsınız. Lütfen Havale/EFT veya Kredi Kartı seçeneğini kullanın.</p>
+                      <p style={{ marginTop: '0.25rem', fontSize: '0.875rem' }}>Bu sipariş risk limitinizi aştığı için Cari Hesap ile sipariş veremezsiniz. Limit veya alternatif ödeme süreci için satış temsilcinizle iletişime geçin.</p>
                     </div>
                   </div>
                 ) : (
@@ -286,7 +245,8 @@ export default function CheckoutPage() {
                 paymentMethod === 'OPEN_ACCOUNT' &&
                 (effectiveUser?.balance || 0) + totalAmount > (effectiveUser?.riskLimit || 0);
               const missingAddress = addressRequired && !selectedAddressId;
-              const submitDisabled = loading || overLimit || missingAddress;
+              const missingCustomer = effectiveUser?.role !== 'CUSTOMER';
+              const submitDisabled = loading || overLimit || missingAddress || missingCustomer;
 
               return (
                 <>
@@ -295,13 +255,18 @@ export default function CheckoutPage() {
                       Sipariş için teslimat adresi seçmelisiniz.
                     </p>
                   )}
+                  {missingCustomer && (
+                    <p style={{ marginBottom: '0.75rem', fontSize: '0.8125rem', color: '#b45309', textAlign: 'center' }}>
+                      Cari sipariş için aktif bir müşteri hesabı seçmelisiniz.
+                    </p>
+                  )}
                   <button
                     type="submit"
                     form="checkout-form"
                     disabled={submitDisabled}
                     style={{ width: '100%', padding: '1rem', backgroundColor: 'var(--accent-primary)', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: submitDisabled ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', opacity: submitDisabled ? 0.6 : 1 }}
                   >
-                    {loading ? 'İşleniyor...' : (paymentMethod === 'CREDIT_CARD' ? 'Sipariş Oluştur (Ödeme Bekler)' : paymentMethod === 'OPEN_ACCOUNT' ? 'Cari ile Sipariş Ver' : 'Siparişi Onayla')}
+                    {loading ? 'İşleniyor...' : 'Cari ile Sipariş Ver'}
                   </button>
                 </>
               );

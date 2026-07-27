@@ -68,6 +68,8 @@ npm run test:security
 
 Bu iki komut Next geliştirme sunucusu veya production build açmaz.
 
+Yetkili `SUPERADMIN` ve `WAREHOUSE` kullanıcıları `/admin/kanal-hazirlik` ekranından kataloğun B2B, B2C ve pazaryeri eksiklerini ayrı görebilir; tüm katalog raporu aynı ekrandan güvenli UTF-8 CSV olarak alınabilir. Bu rapor doğrudan pazaryeri yükleme dosyası değildir.
+
 Uygulama çalışırken `/api/health`, yalnız servis ve SQL Server erişilebilirliğini genel bir `ok/unavailable` yanıtıyla bildirir; bağlantı ayrıntısı veya secret döndürmez.
 
 ## Güvenlik Notları
@@ -82,7 +84,8 @@ Uygulama çalışırken `/api/health`, yalnız servis ve SQL Server erişilebili
   npm run security:migrate-passwords
   ```
 
-- Kart numarası ve CVV uygulama tarafından alınmaz. Gerçek ödeme için PCI uyumlu ödeme sağlayıcısının barındırdığı sayfa kullanılmalıdır.
+- Kart numarası ve CVV uygulama tarafından alınmaz. Gerçek ödeme sağlayıcısı/webhook'u ile gerçek banka hesabı/mutabakatı henüz bulunmadığı için kredi kartı ve Havale/EFT hem arayüzde hem sunucuda kapalıdır; yalnız yetkili B2B cari hesap siparişi oluşturulabilir. Dış ödeme açıldığında PCI uyumlu sağlayıcının barındırdığı sayfa kullanılmalıdır.
+- Bayi fiyatları yalnız doğrulanmış aktif müşteri veya yönetici oturumuna döner; anonim, geçersiz ve askıdaki oturumlarda ürün Server Action yanıtlarından sunucu tarafında çıkarılır.
 - Yerel `public/uploads` yalnız geliştirme içindir. Üretimde object storage, virüs taraması ve CDN gerekir.
 - Uygulama katmanı rate limit tek sunucu içindir. Çok instance üretimde Redis tabanlı merkezi rate limit gerekir.
 
@@ -90,6 +93,7 @@ Uygulama çalışırken `/api/health`, yalnız servis ve SQL Server erişilebili
 
 - `PROJE_INCELEME_VE_DUZELTME_PLANI.md`: doğrulanmış bulgular ve uygulanan düzeltmeler
 - `PROJE_GEREKSINIMLERI_VE_YOL_HARITASI.md`: kalan işler, bağımlılıklar ve kabul kriterleri
+- `PAZARYERI_B2B_B2C_EKSIKLER_VE_ENTEGRASYON_PLANI.md`: Trendyol V2, diğer pazaryerleri, B2B ve B2C için kanal hazırlık matrisi ve uygulanabilir entegrasyon sırası
 - `prisma/migrations/README.md`: veritabanı baseline/migration uygulama notları
 
 ## Üretime Çıkmadan Önce

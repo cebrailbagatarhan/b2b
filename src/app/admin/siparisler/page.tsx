@@ -56,7 +56,7 @@ const statusStyles: Record<string, { backgroundColor: string; color: string }> =
   PENDING_TRANSFER: { backgroundColor: '#fff7ed', color: '#c2410c' },
   APPROVED: { backgroundColor: '#ecfdf5', color: '#047857' },
   PAID: { backgroundColor: '#ecfdf5', color: '#047857' },
-  PROCESSING: { backgroundColor: '#eff6ff', color: '#1d4ed8' },
+  PROCESSING: { backgroundColor: 'var(--accent-light)', color: 'var(--accent-pressed)' },
   SHIPPED: { backgroundColor: '#eef2ff', color: '#4338ca' },
   DELIVERED: { backgroundColor: '#f0fdf4', color: '#15803d' },
   COMPLETED: { backgroundColor: '#f0fdf4', color: '#15803d' },
@@ -78,7 +78,7 @@ export default async function AdminOrdersPage() {
   if (!(await hasOrderIntegritySchema())) {
     return (
       <div>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)' }}>
           Siparişler
         </h1>
         <p style={{ marginTop: '0.75rem', color: '#b45309' }}>
@@ -162,7 +162,7 @@ export default async function AdminOrdersPage() {
   return (
     <div>
       <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a' }}>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)' }}>
           Siparişler
         </h1>
         <p style={{ marginTop: '0.5rem', color: '#64748b', fontSize: '0.875rem' }}>
@@ -198,12 +198,12 @@ export default async function AdminOrdersPage() {
               return (
                 <tr key={order.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                   <td style={bodyCellStyle}>
-                    <span style={{ fontWeight: 600, color: '#0f172a' }}>
+                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
                       #{order.id.slice(-8).toUpperCase()}
                     </span>
                   </td>
                   <td style={bodyCellStyle}>
-                    <div style={{ fontWeight: 500, color: '#0f172a' }}>
+                    <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>
                       {order.customer.name}
                     </div>
                     {order.customer.companyCode && (
@@ -215,7 +215,7 @@ export default async function AdminOrdersPage() {
                   <td style={{ ...bodyCellStyle, minWidth: '180px' }}>
                     {order.shippingCity ? (
                       <div style={{ fontSize: '0.8125rem', lineHeight: 1.5 }}>
-                        <div style={{ fontWeight: 600, color: '#0f172a' }}>
+                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
                           {order.shippingFullName}
                         </div>
                         <div>
@@ -224,7 +224,7 @@ export default async function AdminOrdersPage() {
                         <div style={{ color: '#64748b' }}>{order.shippingPhone}</div>
                         {order.shippingAddressLine && (
                           <details>
-                            <summary style={{ cursor: 'pointer', color: '#2563eb' }}>
+                            <summary style={{ cursor: 'pointer', color: 'var(--accent-primary)' }}>
                               Açık adres
                             </summary>
                             <p style={{ marginTop: '0.25rem', color: '#64748b' }}>
@@ -261,7 +261,7 @@ export default async function AdminOrdersPage() {
                                 lineHeight: 1.45,
                               }}
                             >
-                              <div style={{ fontWeight: 600, color: '#0f172a' }}>
+                              <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
                                 {item.productName}
                               </div>
                               <div style={{ marginTop: '0.2rem', color: '#64748b', fontSize: '0.8rem' }}>
@@ -303,7 +303,7 @@ export default async function AdminOrdersPage() {
                       ...bodyCellStyle,
                       textAlign: 'right',
                       fontWeight: 600,
-                      color: '#0f172a',
+                      color: 'var(--text-primary)',
                       whiteSpace: 'nowrap',
                     }}
                   >

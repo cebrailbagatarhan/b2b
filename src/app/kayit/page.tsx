@@ -4,14 +4,41 @@ import { useState } from 'react';
 import { UserPlus, ShoppingCart } from 'lucide-react';
 import styles from '../giris/page.module.css';
 import Link from 'next/link';
+import {
+  DEMO_PHONE_VERIFICATION_CODE,
+  formatTurkeyPhoneDisplay,
+  isDemoPhoneVerificationEnabled,
+  normalizeTurkeyPhone,
+} from '@/lib/phone';
 
 export default function RegisterPage() {
+  const demoPhoneVerificationEnabled = isDemoPhoneVerificationEnabled();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const handlePhoneChange = (value: string) => {
+    setPhone(value);
+    // Demo: valid mobile number auto-fills the fixed OTP. No SMS is sent.
+    if (demoPhoneVerificationEnabled && normalizeTurkeyPhone(value)) {
+      setVerificationCode(DEMO_PHONE_VERIFICATION_CODE);
+    }
+  };
+
+  const handlePhoneBlur = () => {
+    const normalized = normalizeTurkeyPhone(phone);
+    if (normalized) {
+      setPhone(formatTurkeyPhoneDisplay(normalized));
+      if (demoPhoneVerificationEnabled) {
+        setVerificationCode(DEMO_PHONE_VERIFICATION_CODE);
+      }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +50,13 @@ export default function RegisterPage() {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({
+          name,
+          email,
+          phone,
+          password,
+          verificationCode,
+        }),
       });
       
       const result = await response.json();
@@ -34,6 +67,7 @@ export default function RegisterPage() {
             'Başvurunuz alındı. Yönetici onayından sonra giriş yapabilirsiniz.'
         );
         setPassword('');
+        setVerificationCode('');
       } else {
         setError(result.error || 'Kayıt başarısız.');
       }
@@ -99,12 +133,57 @@ export default function RegisterPage() {
           </div>
 
           <div className={styles.formGroup}>
+            <label htmlFor="phone" className={styles.label}>Cep Telefonu</label>
+            <input
+              id="phone"
+              type="tel"
+              className={styles.input}
+              placeholder="05XX XXX XX XX"
+              value={phone}
+              onChange={(e) => handlePhoneChange(e.target.value)}
+              onBlur={handlePhoneBlur}
+              required
+              inputMode="tel"
+              autoComplete="tel"
+            />
+            <p style={{ marginTop: '0.4rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+              {demoPhoneVerificationEnabled
+                ? 'Demo: Geçerli numara girilince doğrulama kodu otomatik dolar. SMS gönderilmez.'
+                : 'SMS doğrulama sağlayıcısı yapılandırılana kadar yeni kayıt kapalıdır.'}
+            </p>
+          </div>
+
+          <div className={styles.formGroup}>
+            <label htmlFor="verificationCode" className={styles.label}>
+              Telefon doğrulama kodu
+            </label>
+            <input
+              id="verificationCode"
+              type="text"
+              className={styles.input}
+              placeholder={demoPhoneVerificationEnabled ? '123456' : 'SMS kodu'}
+              value={verificationCode}
+              onChange={(e) => setVerificationCode(e.target.value)}
+              required
+              disabled={!demoPhoneVerificationEnabled}
+              inputMode="numeric"
+              maxLength={6}
+              autoComplete="one-time-code"
+            />
+            {demoPhoneVerificationEnabled && (
+              <p style={{ marginTop: '0.4rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                Demo kod: <strong>{DEMO_PHONE_VERIFICATION_CODE}</strong>
+              </p>
+            )}
+          </div>
+
+          <div className={styles.formGroup}>
             <label htmlFor="password" className={styles.label}>Şifre</label>
             <input
               id="password"
               type="password"
               className={styles.input}
-              placeholder="••••••••"
+              placeholder="En az 8 karakter"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -113,7 +192,11 @@ export default function RegisterPage() {
             />
           </div>
 
-          <button type="submit" className={styles.submitBtn} disabled={loading}>
+          <button
+            type="submit"
+            className={styles.submitBtn}
+            disabled={loading || !demoPhoneVerificationEnabled}
+          >
             <UserPlus size={20} />
             {loading ? 'Kayıt yapılıyor...' : 'Kayıt Ol'}
           </button>

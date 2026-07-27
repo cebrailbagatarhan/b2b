@@ -173,7 +173,7 @@
   width: 100%;
   margin-top: var(--spacing-lg);
   padding: 0.85rem;
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  background: var(--accent-gradient);
   color: white;
   font-weight: 600;
   font-size: 1rem;

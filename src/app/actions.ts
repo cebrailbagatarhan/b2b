@@ -1,19 +1,51 @@
 'use server'
 
 import { Prisma } from '@prisma/client'
+import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
-import { requireCustomerAccess } from '@/lib/authorization'
-import { AuthorizationError } from '@/lib/session'
+import {
+  requireCustomerAccess,
+  requireVerifiedSession,
+} from '@/lib/authorization'
+import { AuthorizationError, deleteSession } from '@/lib/session'
 import { categoryNameMatchesSlug } from '@/lib/category-slug'
 import {
   calculateOrderLineAmounts,
   isCryptographicOrderKey,
   orderItemsMatch,
+  shippingSnapshotsMatch,
 } from '@/lib/order-integrity'
 import {
+  getPaymentMethodAvailability,
+  isPaymentMethod,
+  type PaymentMethod,
+} from '@/lib/payment-capabilities'
+import {
+  canCustomerCancelOrder,
+  parseOrderStatus,
+} from '@/lib/order-status'
+import {
   hasAddressSchema,
+  hasCustomerApprovalSchema,
+  hasCustomerPhoneSchema,
   hasOrderIntegritySchema,
 } from '@/lib/customer-schema-compat'
+import { hashPassword, verifyPassword } from '@/lib/password'
+import { isValidTurkeyLocation } from '@/lib/turkey-locations'
+import {
+  redactProductPrices,
+  redactProductsPrices,
+} from '@/lib/catalog-price-access'
+
+async function canViewCatalogPrices(): Promise<boolean> {
+  try {
+    await requireVerifiedSession()
+    return true
+  } catch (error) {
+    if (error instanceof AuthorizationError) return false
+    throw error
+  }
+}
 
 // ─── Categories ───
 export async function getCategories() {
@@ -34,6 +66,7 @@ export async function getCategories() {
 export async function getCategoryBySlug(slug: string) {
   try {
     if (typeof slug !== 'string' || slug.length > 80) return null
+    const canViewPrices = await canViewCatalogPrices()
 
     // Slug'ı Türkçe isme çevir (basit mapping)
     const nameMap: Record<string, string> = {
@@ -47,7 +80,7 @@ export async function getCategoryBySlug(slug: string) {
     const name = nameMap[slug.toLowerCase()]
     if (!name) return null
 
-    return await prisma.category.findFirst({
+    const category = await prisma.category.findFirst({
       where: { name },
       include: {
         children: true,
@@ -56,6 +89,12 @@ export async function getCategoryBySlug(slug: string) {
         },
       },
     })
+    if (!category || canViewPrices) return category
+
+    return {
+      ...category,
+      products: redactProductsPrices(category.products),
+    }
   } catch (error) {
     console.error('Error fetching category:', error)
     return null
@@ -70,6 +109,7 @@ export async function getChildCategoryBySlugs(parentSlug: string, childSlug: str
       parentSlug.length > 80 ||
       childSlug.length > 80
     ) return null
+    const canViewPrices = await canViewCatalogPrices()
 
     const rootCategories = await prisma.category.findMany({
       where: { parentId: null },
@@ -106,7 +146,13 @@ export async function getChildCategoryBySlugs(parentSlug: string, childSlug: str
 
     if (!category?.parent) return null
 
-    return { ...category, parent: category.parent }
+    return {
+      ...category,
+      parent: category.parent,
+      products: canViewPrices
+        ? category.products
+        : redactProductsPrices(category.products),
+    }
   } catch (error) {
     console.error('Error fetching child category:', error)
     return null
@@ -119,8 +165,9 @@ export async function getProducts(categoryId?: string) {
     if (categoryId && (typeof categoryId !== 'string' || categoryId.length > 128)) {
       return []
     }
+    const canViewPrices = await canViewCatalogPrices()
 
-    return await prisma.product.findMany({
+    const products = await prisma.product.findMany({
       where: categoryId ? { categoryId } : undefined,
       include: {
         prices: true,
@@ -128,6 +175,7 @@ export async function getProducts(categoryId?: string) {
         category: true,
       },
     })
+    return canViewPrices ? products : redactProductsPrices(products)
   } catch (error) {
     console.error('Error fetching products:', error)
     return []
@@ -137,8 +185,9 @@ export async function getProducts(categoryId?: string) {
 export async function getProductById(id: string) {
   try {
     if (typeof id !== 'string' || !id.trim() || id.length > 128) return null
+    const canViewPrices = await canViewCatalogPrices()
 
-    return await prisma.product.findUnique({
+    const product = await prisma.product.findUnique({
       where: { id },
       include: {
         prices: true,
@@ -148,6 +197,8 @@ export async function getProductById(id: string) {
         },
       },
     })
+    if (!product || canViewPrices) return product
+    return redactProductPrices(product)
   } catch (error) {
     console.error('Error fetching product:', error)
     return null
@@ -159,8 +210,9 @@ export async function searchProducts(query: string) {
     if (typeof query !== 'string') return []
     const normalizedQuery = query.trim()
     if (normalizedQuery.length < 2 || normalizedQuery.length > 100) return []
+    const canViewPrices = await canViewCatalogPrices()
 
-    return await prisma.product.findMany({
+    const products = await prisma.product.findMany({
       where: {
         OR: [
           { name: { contains: normalizedQuery } },
@@ -175,6 +227,7 @@ export async function searchProducts(query: string) {
       },
       take: 20,
     })
+    return canViewPrices ? products : redactProductsPrices(products)
   } catch (error) {
     console.error('Error searching products:', error)
     return []
@@ -193,8 +246,9 @@ export async function getProductsByStockCodes(codes: string[]) {
         .filter((code) => code.length > 0 && code.length <= 64)
     )]
     if (normalizedCodes.length === 0) return []
+    const canViewPrices = await canViewCatalogPrices()
 
-    return await prisma.product.findMany({
+    const products = await prisma.product.findMany({
       where: {
         stockCode: { in: normalizedCodes }
       },
@@ -203,6 +257,7 @@ export async function getProductsByStockCodes(codes: string[]) {
         units: true,
       }
     })
+    return canViewPrices ? products : redactProductsPrices(products)
   } catch (error) {
     console.error('Error fetching by stock codes:', error)
     return []
@@ -250,12 +305,20 @@ function normalizeAddressInput(data: unknown): AddressInput {
     throw new OrderValidationError('Posta kodu geçersiz.')
   }
 
+  const city = requireText(input.city, 'İl', 80)
+  const district = requireText(input.district, 'İlçe', 80)
+  if (!isValidTurkeyLocation(city, district)) {
+    throw new OrderValidationError(
+      'İl ve ilçe gerçek bir Türkiye konumuna ait olmalıdır.'
+    )
+  }
+
   return {
     title: requireText(input.title, 'Adres başlığı', 80),
     fullName: requireText(input.fullName, 'Ad soyad', 160),
     phone,
-    city: requireText(input.city, 'İl', 80),
-    district: requireText(input.district, 'İlçe', 80),
+    city,
+    district,
     addressLine: requireText(input.addressLine, 'Adres', 512),
     postalCode,
     isDefault: input.isDefault === true,
@@ -399,7 +462,6 @@ export async function deleteAddress(userId: string, addressId: string) {
 }
 
 // ─── Orders ───
-type PaymentMethod = 'CREDIT_CARD' | 'TRANSFER' | 'OPEN_ACCOUNT'
 
 type OrderItemInput = {
   productId: string
@@ -407,19 +469,10 @@ type OrderItemInput = {
   quantity: number
 }
 
-const PAYMENT_METHODS: readonly PaymentMethod[] = [
-  'CREDIT_CARD',
-  'TRANSFER',
-  'OPEN_ACCOUNT',
-]
 const MAX_ORDER_LINES = 100
 const MAX_ITEM_QUANTITY = 100_000
 
 class OrderValidationError extends Error {}
-
-function isPaymentMethod(value: unknown): value is PaymentMethod {
-  return PAYMENT_METHODS.includes(value as PaymentMethod)
-}
 
 function roundCurrency(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100
@@ -504,6 +557,12 @@ export async function createOrder(data: {
     if (!isPaymentMethod(data?.paymentMethod)) {
       throw new OrderValidationError('Ödeme yöntemi geçersiz.')
     }
+    const paymentAvailability = getPaymentMethodAvailability(data.paymentMethod)
+    if (!paymentAvailability.enabled) {
+      throw new OrderValidationError(
+        paymentAvailability.reason ?? 'Ödeme yöntemi kullanılamıyor.'
+      )
+    }
 
     const session = await requireCustomerAccess(customerId)
     if (!(await hasOrderIntegritySchema())) {
@@ -571,6 +630,17 @@ export async function createOrder(data: {
         select: {
           id: true,
           paymentMethod: true,
+          ...(addressSchemaReady
+            ? {
+                shippingTitle: true,
+                shippingFullName: true,
+                shippingPhone: true,
+                shippingCity: true,
+                shippingDistrict: true,
+                shippingAddressLine: true,
+                shippingPostalCode: true,
+              }
+            : {}),
           items: {
             select: { productId: true, unitId: true, quantity: true },
           },
@@ -583,10 +653,11 @@ export async function createOrder(data: {
 
       if (
         existingOrder.paymentMethod !== data.paymentMethod ||
-        !orderItemsMatch(items, existingOrder.items)
+        !orderItemsMatch(items, existingOrder.items) ||
+        !shippingSnapshotsMatch(shippingSnapshot, existingOrder)
       ) {
         throw new OrderValidationError(
-          'Bu sipariş güvenlik anahtarı farklı bir sepet için daha önce kullanılmış. Sayfayı yenileyin.'
+          'Bu sipariş güvenlik anahtarı farklı bir sepet veya teslimat adresi için daha önce kullanılmış. Sayfayı yenileyin.'
         )
       }
 
@@ -643,6 +714,17 @@ export async function createOrder(data: {
           select: {
             id: true,
             paymentMethod: true,
+            ...(addressSchemaReady
+              ? {
+                  shippingTitle: true,
+                  shippingFullName: true,
+                  shippingPhone: true,
+                  shippingCity: true,
+                  shippingDistrict: true,
+                  shippingAddressLine: true,
+                  shippingPostalCode: true,
+                }
+              : {}),
             items: {
               select: { productId: true, unitId: true, quantity: true },
             },
@@ -651,10 +733,11 @@ export async function createOrder(data: {
         if (existingOrder) {
           if (
             existingOrder.paymentMethod !== data.paymentMethod ||
-            !orderItemsMatch(items, existingOrder.items)
+            !orderItemsMatch(items, existingOrder.items) ||
+            !shippingSnapshotsMatch(shippingSnapshot, existingOrder)
           ) {
             throw new OrderValidationError(
-              'Bu sipariş güvenlik anahtarı farklı bir sepet için daha önce kullanılmış. Sayfayı yenileyin.'
+              'Bu sipariş güvenlik anahtarı farklı bir sepet veya teslimat adresi için daha önce kullanılmış. Sayfayı yenileyin.'
             )
           }
 
@@ -873,6 +956,110 @@ export async function createOrder(data: {
   }
 }
 
+export async function cancelOwnUnpaidOrder(orderId: string) {
+  try {
+    if (typeof orderId !== 'string' || !orderId.trim() || orderId.length > 128) {
+      throw new OrderValidationError('Sipariş kimliği geçersiz.')
+    }
+
+    const session = await requireVerifiedSession()
+    if (session.role !== 'CUSTOMER') {
+      throw new AuthorizationError('Bu işlem için yetkiniz yok.', 403)
+    }
+    if (!(await hasOrderIntegritySchema())) {
+      throw new OrderValidationError(
+        'Sipariş altyapısı için veritabanı geçişi henüz tamamlanmadı.'
+      )
+    }
+
+    const outcome = await prisma.$transaction(
+      async (transaction) => {
+        const order = await transaction.order.findUnique({
+          where: { id: orderId.trim() },
+          select: {
+            id: true,
+            customerId: true,
+            status: true,
+            items: {
+              select: {
+                productId: true,
+                quantity: true,
+                unitMultiplier: true,
+              },
+            },
+          },
+        })
+
+        if (!order || order.customerId !== session.userId) {
+          throw new OrderValidationError('Sipariş bulunamadı.')
+        }
+
+        const status = parseOrderStatus(order.status)
+        if (!status) {
+          throw new OrderValidationError('Siparişin mevcut durumu tanınmıyor.')
+        }
+        if (status === 'CANCELLED') {
+          return { alreadyCancelled: true as const }
+        }
+        if (!canCustomerCancelOrder(status)) {
+          throw new OrderValidationError(
+            'Yalnız ödeme veya havale bekleyen, işleme alınmamış siparişler iptal edilebilir.'
+          )
+        }
+        if (order.items.length === 0) {
+          throw new OrderValidationError(
+            'Kalem snapshot’ı olmayan eski sipariş otomatik iptal edilemez.'
+          )
+        }
+
+        // Claim the state first. A concurrent click can no longer restore stock
+        // twice; any later failure rolls the whole serializable transaction back.
+        const updated = await transaction.order.updateMany({
+          where: {
+            id: order.id,
+            customerId: session.userId,
+            status: order.status,
+          },
+          data: { status: 'CANCELLED' },
+        })
+        if (updated.count !== 1) {
+          throw new OrderValidationError(
+            'Sipariş bu sırada değişti. Sayfayı yenileyip tekrar deneyin.'
+          )
+        }
+
+        for (const item of order.items) {
+          if (!item.productId) continue
+          const restoreQuantity = item.quantity * item.unitMultiplier
+          if (!Number.isSafeInteger(restoreQuantity) || restoreQuantity < 1) {
+            throw new OrderValidationError(
+              'Sipariş stok miktarı güvenli biçimde geri alınamadı.'
+            )
+          }
+          await transaction.product.update({
+            where: { id: item.productId },
+            data: { stockQuantity: { increment: restoreQuantity } },
+          })
+        }
+
+        return { alreadyCancelled: false as const }
+      },
+      { isolationLevel: 'Serializable' }
+    )
+
+    revalidatePath('/siparis-takip')
+    revalidatePath('/admin/siparisler')
+    return { success: true as const, ...outcome }
+  } catch (error) {
+    if (error instanceof OrderValidationError || error instanceof AuthorizationError) {
+      return { success: false as const, error: error.message }
+    }
+
+    console.error('Error cancelling unpaid order:', error)
+    return { success: false as const, error: 'Sipariş iptal edilemedi.' }
+  }
+}
+
 export async function getOrdersByUser(userId: string) {
   const customerId = validateCustomerId(userId)
   await requireCustomerAccess(customerId)
@@ -891,4 +1078,183 @@ export async function getUserBalance(userId: string) {
     where: { id: customerId },
     select: { balance: true, companyCode: true, name: true },
   })
+}
+
+export async function getCustomerAccount(userId: string) {
+  try {
+    const customerId = validateCustomerId(userId)
+    await requireCustomerAccess(customerId)
+
+    const selectBase = {
+      id: true,
+      name: true,
+      email: true,
+      companyCode: true,
+      balance: true,
+      discountRate: true,
+      riskLimit: true,
+      createdAt: true,
+    } as const
+
+    const withStatus = (await hasCustomerApprovalSchema())
+      ? await prisma.customer.findUnique({
+          where: { id: customerId },
+          select: { ...selectBase, status: true },
+        })
+      : null
+
+    const customer =
+      withStatus ??
+      (await prisma.customer.findUnique({
+        where: { id: customerId },
+        select: selectBase,
+      }))
+
+    if (!customer) {
+      return { success: false as const, error: 'Müşteri bulunamadı.' }
+    }
+
+    const phoneRecord = (await hasCustomerPhoneSchema())
+      ? await prisma.customer.findUnique({
+          where: { id: customerId },
+          select: { phone: true },
+        })
+      : null
+
+    const recentOrders = (await hasOrderIntegritySchema())
+      ? await prisma.order.findMany({
+          where: { customerId },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+          select: {
+            id: true,
+            status: true,
+            totalAmount: true,
+            currency: true,
+            createdAt: true,
+            paymentMethod: true,
+          },
+        })
+      : []
+
+    const status =
+      'status' in customer && typeof customer.status === 'string'
+        ? customer.status
+        : 'ACTIVE'
+
+    return {
+      success: true as const,
+      customer: {
+        id: customer.id,
+        name: customer.name,
+        email: customer.email,
+        phone: phoneRecord?.phone ?? null,
+        companyCode: customer.companyCode,
+        balance: customer.balance,
+        discountRate: customer.discountRate,
+        riskLimit: customer.riskLimit,
+        createdAt: customer.createdAt,
+        status,
+      },
+      recentOrders,
+    }
+  } catch (error) {
+    if (error instanceof OrderValidationError || error instanceof AuthorizationError) {
+      return { success: false as const, error: error.message }
+    }
+    console.error('Error loading customer account:', error)
+    return { success: false as const, error: 'Hesap bilgileri yüklenemedi.' }
+  }
+}
+
+export async function updateCustomerProfile(
+  userId: string,
+  data: { name: string }
+) {
+  try {
+    const customerId = validateCustomerId(userId)
+    await requireCustomerAccess(customerId)
+
+    const name = typeof data?.name === 'string' ? data.name.trim() : ''
+    if (name.length < 2 || name.length > 120) {
+      return {
+        success: false as const,
+        error: 'Ad veya firma adı 2-120 karakter olmalıdır.',
+      }
+    }
+
+    const customer = await prisma.customer.update({
+      where: { id: customerId },
+      data: { name },
+      select: { id: true, name: true, email: true },
+    })
+
+    return { success: true as const, customer }
+  } catch (error) {
+    if (error instanceof OrderValidationError || error instanceof AuthorizationError) {
+      return { success: false as const, error: error.message }
+    }
+    console.error('Error updating customer profile:', error)
+    return { success: false as const, error: 'Profil güncellenemedi.' }
+  }
+}
+
+export async function changeCustomerPassword(
+  userId: string,
+  data: { currentPassword: string; newPassword: string }
+) {
+  try {
+    const customerId = validateCustomerId(userId)
+    await requireCustomerAccess(customerId)
+
+    const currentPassword =
+      typeof data?.currentPassword === 'string' ? data.currentPassword : ''
+    const newPassword =
+      typeof data?.newPassword === 'string' ? data.newPassword : ''
+
+    if (newPassword.length < 8 || newPassword.length > 128) {
+      return {
+        success: false as const,
+        error: 'Yeni şifre 8-128 karakter olmalıdır.',
+      }
+    }
+    if (currentPassword === newPassword) {
+      return {
+        success: false as const,
+        error: 'Yeni şifre mevcut şifreden farklı olmalıdır.',
+      }
+    }
+
+    const customer = await prisma.customer.findUnique({
+      where: { id: customerId },
+      select: { password: true },
+    })
+    if (!customer) {
+      return { success: false as const, error: 'Müşteri bulunamadı.' }
+    }
+
+    if (!(await verifyPassword(currentPassword, customer.password))) {
+      return { success: false as const, error: 'Mevcut şifre hatalı.' }
+    }
+
+    await prisma.customer.update({
+      where: { id: customerId },
+      data: { password: await hashPassword(newPassword) },
+    })
+
+    try {
+      await deleteSession()
+    } catch {
+      // The password-derived credential version already invalidates the old
+      // cookie. Cookie deletion here is only immediate client cleanup.
+    }
+
+    return { success: true as const }
+  } catch (error) {
+    if (error instanceof OrderValidationError || error instanceof AuthorizationError) {
+      return { success: false as const, error: error.message }
+    }
+    console.error('Error changing customer password:', error)
+    return { success: false as const, error: 'Şifre değiştirilemedi.' }
+  }
 }
