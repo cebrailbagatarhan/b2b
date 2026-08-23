@@ -79,15 +79,12 @@ export async function sendMail(
   const user = process.env.SMTP_USER?.trim()
   const pass = process.env.SMTP_PASS?.trim()
 
-  // Lightweight SMTP via nodemailer is not a dependency yet — use fetch to a
-  // provider later. For now use Node's built-in approach only when SMTP is set
-  // through a simple HTTP email bridge, otherwise log.
-  // Prefer nodemailer if present.
+  // Load the SMTP transport only when mail delivery is configured.
   try {
     const nodemailer = await (dependencies.loadNodemailer ?? loadNodemailer)()
     if (!nodemailer) {
       console.warn(
-        '[email] SMTP configured but nodemailer is not installed; message was not sent.'
+        '[email] SMTP configured but nodemailer could not be loaded; message was not sent.'
       )
       logMailForDevelopment(input, 'email:fallback')
       return { delivered: false }
