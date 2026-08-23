@@ -84,7 +84,7 @@ export async function sendMail(
     const nodemailer = await (dependencies.loadNodemailer ?? loadNodemailer)()
     if (!nodemailer) {
       console.warn(
-        '[email] SMTP configured but nodemailer could not be loaded; message was not sent.'
+        '[email] SMTP configured but nodemailer is not installed; message was not sent.'
       )
       logMailForDevelopment(input, 'email:fallback')
       return { delivered: false }
