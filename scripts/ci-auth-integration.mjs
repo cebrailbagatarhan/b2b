@@ -3,12 +3,12 @@ import { spawn } from 'node:child_process'
 const host = '127.0.0.1'
 const port = 3100
 const baseUrl = `http://${host}:${port}`
-const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm'
+const nextCommand = process.platform === 'win32'\n  ? 'node_modules\\\\.bin\\\\next.cmd'\n  : 'node_modules/.bin/next'
 const logChunks = []
 
 const server = spawn(
-  npmCommand,
-  ['run', 'start', '--', '--hostname', host, '--port', String(port)],
+  nextCommand,
+  ['start', '--hostname', host, '--port', String(port)],
   {
     env: { ...process.env, PORT: String(port) },
     stdio: ['ignore', 'pipe', 'pipe'],
