@@ -7,8 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit --incremental false",
     "check:syntax": "node scripts/check-source-syntax.mjs",
     "test:security": "tsx --test tests/security-helpers.test.ts tests/order-integrity-helpers.test.ts tests/customer-status.test.ts tests/auth-navigation.test.ts tests/order-status.test.ts tests/phone.test.ts tests/email-security.test.ts tests/register-security.test.ts tests/payment-capabilities.test.ts tests/payment-action-security.test.ts tests/commerce-readiness.test.ts tests/catalog-price-access.test.ts",
+    "test:auth:integration": "node scripts/ci-auth-integration.mjs",
+    "ci:static": "npm run check:syntax && npm run lint && npm run typecheck && npm run test:security",
     "test:smoke:low-memory": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/low-memory-smoke.ps1",
     "security:migrate-passwords": "tsx scripts/migrate-passwords.ts"
   },
