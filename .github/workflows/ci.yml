@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+      NODE_OPTIONS: --max-old-space-size=4096
+      DATABASE_URL: sqlserver://localhost:1433;database=master;user=sa;password=CiOnly_9vWk8mP3sL2q!;encrypt=true;trustServerCertificate=true
+      SESSION_SECRET: ci-only-session-secret-2026-that-is-never-used-in-production
+      APP_URL: http://127.0.0.1:3100
+      ALLOW_DEMO_SEED: "false"
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_PID: Developer
+          MSSQL_SA_PASSWORD: CiOnly_9vWk8mP3sL2q!
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'CiOnly_9vWk8mP3sL2q!' -C -Q 'SELECT 1' -b -o /dev/null"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 20
+          --health-start-period 20s
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20.19.5
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run syntax, lint, type and security gates
+        run: npm run ci:static
+
+      - name: Prepare disposable CI database
+        run: npx prisma db push --accept-data-loss --skip-generate
+
+      - name: Build production application
+        run: npm run build
+
+      - name: Run production auth integration checks
+        run: npm run test:auth:integration
