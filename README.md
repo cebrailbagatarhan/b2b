@@ -89,6 +89,16 @@ Uygulama çalışırken `/api/health`, yalnız servis ve SQL Server erişilebili
 - Yerel `public/uploads` yalnız geliştirme içindir. Üretimde object storage, virüs taraması ve CDN gerekir.
 - Uygulama katmanı rate limit tek sunucu içindir. Çok instance üretimde Redis tabanlı merkezi rate limit gerekir.
 
+## GPT-5.6 ile B2C Geliştirme
+
+Uygulamayı bireysel müşteriye satışa hazırlamak için [GPT-5.6 uygulama rehberinden](docs/gpt-5.6/README.md) başlayın. Rehber; karar ayrımlarını, mevcut PR #1 ile çakışmayı önleyen başlangıcı, 30 görev paketini ve tamamlanma ölçütlerini tanımlar.
+
+- [Görev kartları](docs/gpt-5.6/GOREVLER.md)
+- [Uygulama durumu ve sıradaki iş](docs/gpt-5.6/ILERLEME.md)
+- [Rakip ve repo incelemesi](docs/gpt-5.6/ANALIZ_2026-09-24.md)
+
+Bu belgeler planı kaydeder; uygulama işlerinin tamamlandığı anlamına gelmez.
+
 ## Mevcut Belgeler
 
 - `PROJE_INCELEME_VE_DUZELTME_PLANI.md`: doğrulanmış bulgular ve uygulanan düzeltmeler

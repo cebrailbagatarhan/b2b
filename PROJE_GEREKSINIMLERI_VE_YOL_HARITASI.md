@@ -4,6 +4,10 @@ Tarih: 17 Temmuz 2026
 Kapsam: Next.js 16, Prisma 5, SQL Server, mağaza, müşteri hesabı, sipariş, stok ve yönetim paneli  
 İlişkili raporlar: `PROJE_INCELEME_VE_DUZELTME_PLANI.md`, `PAZARYERI_B2B_B2C_EKSIKLER_VE_ENTEGRASYON_PLANI.md`
 
+## B2C uygulama giriş noktası — 24 Eylül 2026
+
+Bireysel müşteriye satış geliştirmesi için [GPT-5.6 uygulama rehberi](docs/gpt-5.6/README.md) ve [ilerleme tablosu](docs/gpt-5.6/ILERLEME.md) kullanılır. Bu belgedeki tarihli bulgular teknik dayanak olarak korunur; yeni T00–T29 paketlerinin güncel durumu yalnız ilerleme tablosunda tutulur. Açık PR #1'deki CI/e-posta bağımlılığı çalışması başlangıçta yeniden yazılmadan değerlendirilmelidir.
+
 ## Bu Dosyanın Amacı
 
 Bu belge, ilk inceleme raporundaki doğrulanmış bulguları değiştirmez. İlk rapor “ne bulundu ve şimdiye kadar ne düzeltildi?” sorusunu, bu belge ise “uygulamanın güvenli biçimde çalışması ve üretime çıkması için bundan sonra ne gerekiyor?” sorusunu yanıtlar.
