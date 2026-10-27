@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
-import { faqItems } from '../src/lib/faq'
+import { faqItems } from '../src/lib/faq.ts'
 
 test('FAQ entries have unique stable IDs and meaningful Turkish copy', () => {
   assert.ok(faqItems.length >= 4)
