@@ -90,6 +90,13 @@ Yetkili `SUPERADMIN` ve `WAREHOUSE` kullanıcıları `/admin/kanal-hazirlik` ekr
 
 Uygulama çalışırken `/api/health`, yalnız servis ve SQL Server erişilebilirliğini genel bir `ok/unavailable` yanıtıyla bildirir; bağlantı ayrıntısı veya secret döndürmez.
 
+
+## Hızlı siparişte Excel satırları
+
+`/sepet/hizli-siparis` ekranındaki **Excel'den toplu satır yapıştır** alanına `STK-001;2` biçiminde satırlar veya Excel'den kopyalanmış iki sütunlu (stok kodu ve adet) sekme ayrımlı veriler yapıştırılabilir. İsteğe bağlı `Stok Kodu;Adet` başlığı, en fazla 100 satır ve 1–9999 tam sayı adet desteklenir. Hatalı veya tekrarlanan kodlar varsa hiçbir satır tabloya aktarılmaz. Bu işlem yalnız ekrandaki tabloyu doldurur; ürün sorgulaması ve sepete ekleme için mevcut **Tümünü Sepete Ekle** düğmesine ayrıca basılması gerekir.
+
+Çevrimdışı ayrıştırıcı testi (Node.js 22): `node --experimental-strip-types --test tests/quick-order-paste.test.ts`. Bu test veritabanına bağlanmaz veya sipariş oluşturmaz.
+
 ## Güvenlik Notları
 
 - Kimlik doğrulama, imzalı `HttpOnly` cookie ve sunucu tarafı rol kontrolleri kullanır.
