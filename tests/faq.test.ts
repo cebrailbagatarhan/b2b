@@ -2,7 +2,13 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
-import { faqItems } from '../src/lib/faq.ts'
+import type { faqItems as FaqItems } from '../src/lib/faq.ts'
+
+// Node's strip-types runner needs the explicit .ts extension, which tsc rejects in
+// value imports unless allowImportingTsExtensions is enabled, so load it dynamically.
+const { faqItems } = (await import(new URL('../src/lib/faq.ts', import.meta.url).href)) as {
+  faqItems: typeof FaqItems
+}
 
 test('FAQ entries have unique stable IDs and meaningful Turkish copy', () => {
   assert.ok(faqItems.length >= 4)
