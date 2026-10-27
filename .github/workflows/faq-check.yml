@@ -14,14 +14,11 @@ permissions:
 jobs:
   faq-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: npm
-      - name: Install dependencies without lifecycle scripts
-        run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Run FAQ regression tests
-        run: npx --no-install tsx --test tests/faq.test.ts
+          node-version: '22'
+      - name: Run FAQ regression tests without installing dependencies
+        run: node --experimental-strip-types --test tests/faq.test.ts
