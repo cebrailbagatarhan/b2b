@@ -1,0 +1,21 @@
+name: Quick order paste
+on:
+  pull_request:
+    paths:
+      - 'src/lib/quick-order-paste.ts'
+      - 'tests/quick-order-paste.test.ts'
+      - 'src/app/sepet/hizli-siparis/page.tsx'
+      - '.github/workflows/quick-order-paste.yml'
+  workflow_dispatch:
+jobs:
+  parser-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Parse helper tests (no DB or secrets)
+        run: node --experimental-strip-types --test tests/quick-order-paste.test.ts
+      - name: Parse helper syntax
+        run: node --experimental-strip-types --check src/lib/quick-order-paste.ts
