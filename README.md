@@ -68,6 +68,24 @@ npm run test:security
 
 Bu iki komut Next geliştirme sunucusu veya production build açmaz.
 
+
+## CI Doğrulamaları
+
+Her pull request ve `master` güncellemesinde GitHub Actions aşağıdaki kapıları çalıştırır:
+
+```powershell
+npm run check:syntax
+npm run lint
+npm run typecheck
+npm run test:security
+npm run build
+npm run test:auth:integration
+```
+
+Build ve HTTP entegrasyon kontrolü, yalnız o CI çalışması için oluşturulan geçici SQL Server container'ında çalışır. CI, disposable veritabanına `prisma db push` uygular; bu işlem production migration/baseline prosedürünün yerine geçmez ve gerçek veritabanında kullanılmamalıdır.
+
+`test:auth:integration`, production build'i başlatıp veritabanı health check'ini; anonim oturum/admin/upload erişiminin reddedilmesini ve değiştirilmiş session cookie'sinin kabul edilmemesini HTTP üzerinden doğrular. Mevcut `test:security` paketi ise yardımcı fonksiyon ve politika seviyesindeki testlerdir.
+
 Yetkili `SUPERADMIN` ve `WAREHOUSE` kullanıcıları `/admin/kanal-hazirlik` ekranından kataloğun B2B, B2C ve pazaryeri eksiklerini ayrı görebilir; tüm katalog raporu aynı ekrandan güvenli UTF-8 CSV olarak alınabilir. Bu rapor doğrudan pazaryeri yükleme dosyası değildir.
 
 Uygulama çalışırken `/api/health`, yalnız servis ve SQL Server erişilebilirliğini genel bir `ok/unavailable` yanıtıyla bildirir; bağlantı ayrıntısı veya secret döndürmez.
