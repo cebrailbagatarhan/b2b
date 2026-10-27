@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { parseQuickOrderPaste, MAX_QUICK_ORDER_ROWS } from '../src/lib/quick-order-paste.ts'
+import { createRequire } from 'node:module'
+const require = createRequire(import.meta.url)
+const { parseQuickOrderPaste, MAX_QUICK_ORDER_ROWS } = require('../src/lib/quick-order-paste.ts')
 
 test('imports Excel tab rows with optional header and BOM', () => {
   assert.deepEqual(parseQuickOrderPaste('\uFEFFStok Kodu\tAdet\r\nSTK-1\t2\r\nSTK-2\t3\n'), {
