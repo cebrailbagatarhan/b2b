@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ShoppingBag, Plus, Trash2, CheckCircle2, AlertCircle, User as UserIcon } from 'lucide-react';
 import { useCartStore, useAuthStore } from '@/lib/store';
 import { getProductsByStockCodes } from '@/app/actions';
+import { MAX_QUICK_ORDER_ROWS, parseQuickOrderPaste } from '@/lib/quick-order-paste';
 
 type Row = {
   stockCode: string;
@@ -22,6 +23,8 @@ function BulkOrderContent() {
   const effectiveUser = proxyUser || user;
 
   const [rows, setRows] = useState<Row[]>([{ stockCode: '', quantity: 1 }, { stockCode: '', quantity: 1 }, { stockCode: '', quantity: 1 }]);
+  const [pasteText, setPasteText] = useState('');
+  const [pasteFeedback, setPasteFeedback] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<{ successCount: number; errors: string[] } | null>(null);
 
@@ -51,6 +54,26 @@ function BulkOrderContent() {
 
   const removeRow = (index: number) => {
     setRows(rows.filter((_, i) => i !== index));
+  };
+
+  const importPastedRows = () => {
+    const parsed = parseQuickOrderPaste(pasteText);
+    const existing = rows.filter((row) => row.stockCode.trim() !== '');
+    const existingCodes = new Set(existing.map((row) => row.stockCode.trim().toLocaleLowerCase('tr-TR')));
+    const conflicts = parsed.rows.filter((row) => existingCodes.has(row.stockCode.toLocaleLowerCase('tr-TR')));
+    const problems = [...parsed.errors];
+    if (conflicts.length) problems.push('Yapıştırılan stok kodları mevcut tabloda tekrar ediyor.');
+    if (existing.length + parsed.rows.length > MAX_QUICK_ORDER_ROWS) {
+      problems.push('Tabloda en fazla ' + MAX_QUICK_ORDER_ROWS + ' ürün satırı olabilir.');
+    }
+    if (problems.length) {
+      setPasteFeedback(problems.slice(0, 3).join(' ') + (problems.length > 3 ? ' (+' + (problems.length - 3) + ' hata)' : ''));
+      return;
+    }
+    setRows([...existing, ...parsed.rows]);
+    setPasteText('');
+    setResults(null);
+    setPasteFeedback(parsed.rows.length + ' satır tabloya eklendi. Sepete aktarmak için "Tümünü Sepete Ekle" seçin.');
   };
 
   const handleBulkAdd = async () => {
@@ -135,6 +158,27 @@ function BulkOrderContent() {
       <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
         Toptan siparişlerinizi hızla girmek için aşağıdaki tabloyu kullanın. Stok kodunu ve adet miktarını yazarak saniyeler içinde sepetinize ekleyebilirsiniz.
       </p>
+
+      <div style={{ backgroundColor: 'var(--bg-card)', padding: '1.25rem', border: '1px solid var(--border)', borderRadius: '0.75rem', marginBottom: '1.5rem' }}>
+        <label htmlFor="quick-order-paste" style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem' }}>
+          Excel&apos;den toplu satır yapıştır
+        </label>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '0.75rem' }}>
+          Her satırda stok kodu ve adet olmalı (sekme veya ; ile ayırın). İsteğe bağlı “Stok Kodu;Adet” başlığı desteklenir. En fazla 100 satır; sepet otomatik değişmez.
+        </p>
+        <textarea
+          id="quick-order-paste"
+          value={pasteText}
+          onChange={(event) => { setPasteText(event.target.value); setPasteFeedback(null); }}
+          placeholder={'STK-001;2\nSTK-002;5'}
+          rows={4}
+          style={{ width: '100%', padding: '0.75rem', border: '1px solid var(--border)', borderRadius: '0.5rem', resize: 'vertical', marginBottom: '0.75rem' }}
+        />
+        <button type="button" onClick={importPastedRows} style={{ padding: '0.65rem 1rem', border: '1px solid var(--border)', borderRadius: '0.5rem', background: 'var(--bg-secondary)', color: 'var(--text-primary)', cursor: 'pointer' }}>
+          Satırları tabloya aktar
+        </button>
+        {pasteFeedback && <p role="status" aria-live="polite" style={{ marginTop: '0.75rem', color: 'var(--text-secondary)' }}>{pasteFeedback}</p>}
+      </div>
 
       {results && (
         <div style={{ marginBottom: '2rem' }}>
