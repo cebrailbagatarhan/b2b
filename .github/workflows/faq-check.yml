@@ -1,0 +1,27 @@
+name: FAQ disclosure regression
+
+on:
+  pull_request:
+    paths:
+      - 'src/app/sss/page.tsx'
+      - 'src/lib/faq.ts'
+      - 'tests/faq.test.ts'
+      - '.github/workflows/faq-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  faq-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Run FAQ regression tests
+        run: npx --no-install tsx --test tests/faq.test.ts
