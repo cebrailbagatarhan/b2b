@@ -15,15 +15,15 @@ Güncelleme: 24 Eylül 2026. Bu kayıt dokümantasyon teslimidir; aşağıdaki u
 
 ## Sıradaki adım
 
-**T00:** [PR #1](https://github.com/cebrailbagatarhan/b2b/pull/1) durumunu yeniden kontrol et ve geliştirme temelini belirle. 24 Eylül 2026 incelemesinde PR açıktı; `1405955c5a5e4d108a13eb6e122f38f31ad5a9b4` commit'inde [CI başarılıydı](https://github.com/cebrailbagatarhan/b2b/actions/runs/32634047051). Bu teslimde o PR birleştirilmedi ve yeni uygulama testleri çalıştırılmadı.
+**T00 INCELEMEDE:** [PR #3](https://github.com/cebrailbagatarhan/b2b/pull/3), güncel `master` commit'i `187c5b6782fd2dce217c5930ab22d5c39255819f` üzerine PR #1'deki mevcut CI/SMTP bağımlılığı çalışmasını uzlaştırdı. Uygulama değişikliklerinin head commit'i `132b050cd334733dece710f584e54a0f71ac0632` için [CI run #10](https://github.com/cebrailbagatarhan/b2b/actions/runs/36041047939) başarıyla tamamlandı. PR #1 hâlâ açık/draft ve birleştirilmedi; aynı çalışma yeniden yazılmadı.
 
-T00 sonrasında T01 ile veri temeli, bağımsız olarak T20 ile işletme içerikleri hazırlanabilir. D04 ödeme, D05 kargo, D06 fatura/koşul ve D07 servis bilgileri erkenden toplanmalı; eksik değerler uydurulmamalı.
+T00 temel dala henüz birleşmediği için T01 resmen `BEKLIYOR`. Bağımlı çalışma açık PR üstüne bilinçli olarak kurulacaksa PR #3 base'i kaydedilerek T01'e geçilebilir. T20 de T00 birleşiminden sonra açılır. D04 ödeme, D05 kargo, D06 fatura/koşul ve D07 servis bilgileri erkenden toplanmalı; eksik değerler uydurulmamalı.
 
 ## Görev tablosu
 
 | ID | Öncelik | Görev | Bağımlılık | Durum | Kanıt / kalan engel |
 |---|---|---|---|---|---|
-| T00 | P0 | Mevcut CI çalışmasını uzlaştır | — | HAZIR | PR #1 mevcut; son durum ve çalışma temeli doğrulanacak. |
+| T00 | P0 | Mevcut CI çalışmasını uzlaştır | — | INCELEMEDE | PR #3; base `187c5b6`, uygulama head `132b050`; CI run #10 başarılı. PR #1 açık/draft kaldı. |
 | T01 | P0 | SQL Server baseline ve güvenli migration | T00 | BEKLIYOR | Gerçek şema export'u, test SQL Server ve restore kanıtı gerekli. |
 | T02 | P0 | Para ve vergi hesaplama sözleşmesi | T01 | BEKLIYOR | Uygulama ve kabul kanıtı henüz yok. |
 | T03 | P0 | Tüketici ve bayi erişim/fiyat ayrımı | T02 | BEKLIYOR | Uygulama ve kabul kanıtı henüz yok. |
@@ -95,6 +95,22 @@ R numaralarının açıklamaları [dayanak incelemede](ANALIZ_2026-09-24.md) bul
 | D06 | Bekliyor | Gerçek şirket/fatura/iade/koşul bilgileri doğrulanmadı |
 | D07 | Bekliyor | Storage ve e-posta ortam erişimleri sağlanmadı |
 | D08 | Bekliyor | Test DB/şema export'u ve üretim geçiş/yayın kapsamı kaydedilmedi |
+
+## Son görev kaydı
+
+```text
+Görev: T00
+Durum: INCELEMEDE
+Çalışma base commit'i: 187c5b6782fd2dce217c5930ab22d5c39255819f
+Değişiklik commit'i / PR: uygulama head 132b050cd334733dece710f584e54a0f71ac0632 / PR #3
+Karşılanan kabul ölçütleri: PR #1 durumu ve head'i doğrulandı; mevcut CI/SMTP işi güncel master üzerine tekrar yazılmadan uzlaştırıldı; temiz kurulum, Prisma Client üretimi, statik kontroller, production build ve auth HTTP kontrolleri ilgili geliştirme commit'i için geçti.
+Çalıştırılan kontroller ve sonuçları: GitHub Actions CI run #10 başarılı — npm ci; prisma generate; check:syntax; lint; typecheck; test:security; disposable SQL Server db push; next build; test:auth:integration.
+Yapılmayan kontrol ve somut nedeni: Üretim migration/baseline ve gerçek veri restore testi T00 kapsamı değildir; T01'e aittir.
+Gerçek sandbox / test DB / tarayıcı kanıtı: CI disposable SQL Server kullanıldı; gerçek üretim/test migration baseline kanıtı değildir. Auth HTTP entegrasyonu production build üzerinde geçti.
+Migration ve geri dönüş etkisi: Üretim migration uygulanmadı; CI yalnız disposable veritabanında db push kullanıyor.
+Kalan dış bağımlılık: T01 için gerçek şema export'u, ayrı test SQL Server ve restore kanıtı gerekli.
+Sıradaki bağımlılıkları sağlanan görev: T00 master'a birleşince T01 ve T20. PR #3 üstüne bağımlı dal açılırsa base açıkça kaydedilmeli.
+```
 
 ## Her görevden sonra eklenecek kayıt
 
