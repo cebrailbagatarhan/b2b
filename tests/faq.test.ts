@@ -2,12 +2,13 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
-import type { faqItems as FaqItems } from '../src/lib/faq.ts'
+import type { faqItems as FaqItems, filterFaqItems as FilterFaqItems } from '../src/lib/faq.ts'
 
 // Node's strip-types runner needs the explicit .ts extension, which tsc rejects in
 // value imports unless allowImportingTsExtensions is enabled, so load it dynamically.
-const { faqItems } = (await import(new URL('../src/lib/faq.ts', import.meta.url).href)) as {
+const { faqItems, filterFaqItems } = (await import(new URL('../src/lib/faq.ts', import.meta.url).href)) as {
   faqItems: typeof FaqItems
+  filterFaqItems: typeof FilterFaqItems
 }
 
 test('FAQ entries have unique stable IDs and meaningful Turkish copy', () => {
@@ -39,9 +40,28 @@ test('payment answer does not advertise disabled payment methods', () => {
 
 test('FAQ page uses native keyboard-accessible disclosure and mapped answers', async () => {
   const page = await readFile(new URL('../src/app/sss/page.tsx', import.meta.url), 'utf8')
-  assert.match(page, /faqItems\.map\(/)
+  assert.match(page, /visibleFaqItems\.map\(/)
   assert.match(page, /<details\b/)
   assert.match(page, /<summary\b/)
   assert.match(page, /\{item\.answer\}/)
   assert.match(page, /<Link href=\{item\.href\}>/)
+})
+
+test('FAQ search is Turkish-case-aware, whitespace-tolerant and matches answers', () => {
+  assert.deepEqual(filterFaqItems('  ŞİFRE  ').map((item) => item.id), ['sifre-sifirlama'])
+  assert.deepEqual(filterFaqItems('KREDİ KARTI').map((item) => item.id), ['odeme-yontemleri'])
+  assert.deepEqual(filterFaqItems('sipariş oturum').map((item) => item.id), ['siparis-takip'])
+  assert.equal(filterFaqItems('bulunmayan-terim').length, 0)
+  assert.equal(filterFaqItems('   ').length, faqItems.length)
+  assert.equal(filterFaqItems('').length, faqItems.length)
+})
+
+test('FAQ search page provides a labeled search field, live result count and empty state', async () => {
+  const page = await readFile(new URL('../src/app/sss/page.tsx', import.meta.url), 'utf8')
+  assert.match(page, /type="search"/)
+  assert.match(page, /htmlFor="faq-search"/)
+  assert.match(page, /aria-controls="faq-results"/)
+  assert.match(page, /aria-live="polite"/)
+  assert.match(page, /visibleFaqItems\.length === 0/)
+  assert.match(page, /filterFaqItems\(query\)/)
 })
