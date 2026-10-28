@@ -43,3 +43,25 @@ test('enforces a maximum of 100 rows', () => {
   assert.equal(result.rows.length, MAX_QUICK_ORDER_ROWS)
   assert.equal(result.errors.length, 1)
 })
+
+test('imports CSV header and quoted stock codes with escaped quotes', () => {
+  const parsed = parseQuickOrderPaste('\uFEFFStok Kodu,Adet\n"SKU, A",2\n"SKU ""B""",3')
+  assert.deepEqual(parsed, {
+    rows: [{ stockCode: 'SKU, A', quantity: 2 }, { stockCode: 'SKU "B"', quantity: 3 }],
+    errors: [],
+  })
+})
+
+test('rejects malformed CSV quotes without importing partial rows', () => {
+  for (const text of ['"SKU, A;2', '"SKU, A,2', '"SKU"x,2', 'SKU"bad,2']) {
+    const parsed = parseQuickOrderPaste(text)
+    assert.equal(parsed.rows.length, 0)
+    assert.equal(parsed.errors.length, 1)
+  }
+})
+
+test('accepts simple CSV and keeps existing tab and semicolon behavior', () => {
+  assert.deepEqual(parseQuickOrderPaste('ABC,4').rows, [{ stockCode: 'ABC', quantity: 4 }])
+  assert.deepEqual(parseQuickOrderPaste('ABC;4').rows, [{ stockCode: 'ABC', quantity: 4 }])
+  assert.deepEqual(parseQuickOrderPaste('ABC\t4').rows, [{ stockCode: 'ABC', quantity: 4 }])
+})
