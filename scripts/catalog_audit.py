@@ -27,7 +27,7 @@ def summarize_csv(source):
     report = {
         "products": 0,
         "channels": {
-            channel: {"ready": 0, "blocked": 0, "blockers": {}}
+            channel: {"ready": 0, "blocked": 0, "ready_percent": 0.0, "blockers": {}}
             for channel in CHANNEL_COLUMNS
         },
     }
@@ -45,7 +45,9 @@ def summarize_csv(source):
             codes = {code.strip() for code in row[blockers_column].split("|") if code.strip()}
             counts[channel].update(codes)
     for channel, counter in counts.items():
-        report["channels"][channel]["blockers"] = dict(sorted(counter.items(), key=lambda item: (-item[1], item[0])))
+        summary = report["channels"][channel]
+        summary["ready_percent"] = round(100 * summary["ready"] / report["products"], 1) if report["products"] else 0.0
+        summary["blockers"] = dict(sorted(counter.items(), key=lambda item: (-item[1], item[0])))
     return report
 
 
@@ -70,7 +72,7 @@ def main(argv=None):
     else:
         print(f"Analiz edilen ürün: {report['products']}")
         for channel, summary in report["channels"].items():
-            print(f"{channel}: {summary['ready']} hazır, {summary['blocked']} engelli")
+            print(f"{channel}: {summary['ready']} hazır, {summary['blocked']} engelli (%{summary['ready_percent']:.1f} hazır)")
             for code, count in list(summary["blockers"].items())[:args.top]:
                 print(f"  {code}: {count}")
     return 0
