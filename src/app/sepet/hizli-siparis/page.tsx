@@ -164,7 +164,7 @@ function BulkOrderContent() {
           Excel&apos;den toplu satır yapıştır
         </label>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '0.75rem' }}>
-          Her satırda stok kodu ve adet olmalı (sekme veya ; ile ayırın). İsteğe bağlı “Stok Kodu;Adet” başlığı desteklenir. En fazla 100 satır; sepet otomatik değişmez.
+          Her satırda stok kodu ve adet olmalı (sekme, ; veya CSV virgülüyle ayırın). Virgül içeren stok kodlarını CSV&apos;de çift tırnak içine alın. İsteğe bağlı başlık desteklenir. En fazla 100 satır; sepet otomatik değişmez.
         </p>
         <textarea
           id="quick-order-paste"
