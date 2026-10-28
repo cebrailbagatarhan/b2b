@@ -50,7 +50,7 @@ test('FAQ page uses native keyboard-accessible disclosure and mapped answers', a
 test('FAQ search is Turkish-case-aware, whitespace-tolerant and matches answers', () => {
   assert.deepEqual(filterFaqItems('  ŞİFRE  ').map((item) => item.id), ['sifre-sifirlama'])
   assert.deepEqual(filterFaqItems('KREDİ KARTI').map((item) => item.id), ['odeme-yontemleri'])
-  assert.deepEqual(filterFaqItems('sipariş hesap').map((item) => item.id), ['siparis-takip'])
+  assert.deepEqual(filterFaqItems('sipariş oturum').map((item) => item.id), ['siparis-takip'])
   assert.equal(filterFaqItems('bulunmayan-terim').length, 0)
   assert.equal(filterFaqItems('   ').length, faqItems.length)
   assert.equal(filterFaqItems('').length, faqItems.length)
