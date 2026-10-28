@@ -25,7 +25,7 @@ export default function Page() {
           onChange={(event) => setQuery(event.target.value)}
           aria-controls="faq-results"
           placeholder="Soru veya anahtar kelime"
-          style={{ width: '100%', padding: '0.75rem', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', background: 'var(--background)', color: 'var(--text-primary)' }}
+          style={{ width: '100%', padding: '0.75rem', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', background: 'var(--bg-elevated)', color: 'var(--text-primary)' }}
         />
         <p role="status" aria-live="polite" style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
           {visibleFaqItems.length} soru gösteriliyor
