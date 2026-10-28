@@ -35,3 +35,14 @@ export const faqItems: readonly FaqItem[] = [
     linkText: 'Şifremi unuttum',
   },
 ]
+
+/** Search questions and answers with Turkish-aware casing; all terms must match. */
+export function filterFaqItems(query: string): readonly FaqItem[] {
+  const normalize = (value: string) => value.trim().toLocaleLowerCase('tr-TR').replace(/\s+/g, ' ')
+  const terms = normalize(query).split(' ').filter(Boolean)
+  if (!terms.length) return faqItems
+  return faqItems.filter((item) => {
+    const haystack = normalize(item.question + ' ' + item.answer)
+    return terms.every((term) => haystack.includes(term))
+  })
+}
