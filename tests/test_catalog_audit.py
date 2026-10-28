@@ -34,6 +34,26 @@ class CatalogAuditTests(unittest.TestCase):
         self.assertEqual(report["channels"]["B2C"]["blockers"]["HTTPS_IMAGE_MISSING"], 2)
         self.assertEqual(report["channels"]["MARKETPLACE"]["blockers"]["BARCODE_NOT_MODELED"], 2)
 
+    def test_ready_percent_by_channel_and_empty_export(self):
+        report = summarize_csv(io.StringIO(sample_csv()))
+        self.assertEqual(report["channels"]["B2B"]["ready_percent"], 50.0)
+        self.assertEqual(report["channels"]["B2C"]["ready_percent"], 0.0)
+        self.assertEqual(report["channels"]["MARKETPLACE"]["ready_percent"], 0.0)
+
+        empty = summarize_csv(io.StringIO(",".join(HEADERS) + "\n"))
+        self.assertEqual(empty["products"], 0)
+        for summary in empty["channels"].values():
+            self.assertEqual(summary["ready_percent"], 0.0)
+
+    def test_cli_text_shows_readiness_percentage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "catalog.csv"
+            path.write_text(sample_csv(), encoding="utf-8")
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(main([str(path), "--channel", "B2B"]), 0)
+            self.assertIn("%50.0 hazır", output.getvalue())
+
     def test_accepts_bom_and_quoted_delimiters(self):
         content = sample_csv().replace("BARCODE_NOT_MODELED | VAT_RATE_NOT_MODELED", "BARCODE_NOT_MODELED | VAT_RATE_NOT_MODELED")
         report = summarize_csv(io.StringIO(content.lstrip("\ufeff")))
