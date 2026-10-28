@@ -53,7 +53,7 @@ test('imports CSV header and quoted stock codes with escaped quotes', () => {
 })
 
 test('rejects malformed CSV quotes without importing partial rows', () => {
-  for (const text of ['"SKU, A;2', '"SKU, A,2', '"SKU"x,2', 'SKU"bad,2']) {
+  for (const text of ['"SKU, A,2', '"SKU"x,2', 'SKU"bad,2', '"SKU, A"tail,2']) {
     const parsed = parseQuickOrderPaste(text)
     assert.equal(parsed.rows.length, 0)
     assert.equal(parsed.errors.length, 1)
