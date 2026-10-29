@@ -4,6 +4,53 @@ export type QuickOrderPasteResult = { rows: QuickOrderRow[]; errors: string[] }
 
 export const MAX_QUICK_ORDER_ROWS = 100
 
+/** Parse one CSV row, including quoted commas and escaped double quotes. */
+function parseCsvCells(line: string): string[] | null {
+  const cells: string[] = []
+  let cell = ''
+  let quoted = false
+  let afterQuote = false
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i]
+    if (quoted) {
+      if (char === '"') {
+        if (line[i + 1] === '"') {
+          cell += '"'
+          i++
+        } else {
+          quoted = false
+          afterQuote = true
+        }
+      } else {
+        cell += char
+      }
+    } else if (afterQuote) {
+      if (char === ',') {
+        cells.push(cell.trim())
+        cell = ''
+        afterQuote = false
+      } else if (!/\s/.test(char)) {
+        return null
+      }
+    } else if (char === ',') {
+      cells.push(cell.trim())
+      cell = ''
+    } else if (char === '"' && !cell.trim()) {
+      cell = ''
+      quoted = true
+    } else if (char === '"') {
+      return null
+    } else {
+      cell += char
+    }
+  }
+
+  if (quoted) return null
+  cells.push(cell.trim())
+  return cells
+}
+
 export function parseQuickOrderPaste(text: string): QuickOrderPasteResult {
   const rows: QuickOrderRow[] = []
   const errors: string[] = []
@@ -14,8 +61,10 @@ export function parseQuickOrderPaste(text: string): QuickOrderPasteResult {
     const line = original.trim()
     if (!line) continue
     nonEmpty++
-    const cells = line.split(line.includes('\t') ? '\t' : ';').map((cell) => cell.trim())
-    if (nonEmpty === 1 && cells.length === 2 &&
+    const cells = line.includes('\t') || line.includes(';')
+      ? line.split(line.includes('\t') ? '\t' : ';').map((cell) => cell.trim())
+      : parseCsvCells(line)
+    if (nonEmpty === 1 && cells?.length === 2 &&
         /^stok\s*kodu$/i.test(cells[0]) && /^(adet|miktar)$/i.test(cells[1])) {
       continue
     }
@@ -23,8 +72,8 @@ export function parseQuickOrderPaste(text: string): QuickOrderPasteResult {
       errors.push('Satır ' + (index + 1) + ': En fazla ' + MAX_QUICK_ORDER_ROWS + ' ürün aktarılabilir.')
       break
     }
-    if (cells.length !== 2) {
-      errors.push('Satır ' + (index + 1) + ': Stok kodu ve adet sekme veya noktalı virgülle ayrılmalı.')
+    if (!cells || cells.length !== 2) {
+      errors.push('Satır ' + (index + 1) + ': Stok kodu ve adet sekme, noktalı virgül veya virgülle ayrılmalı.')
       continue
     }
     const [stockCode, rawQuantity] = cells
